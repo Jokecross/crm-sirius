@@ -1,0 +1,12 @@
+[
+  {
+    "prenom": "Martin",
+    "email": "martinpro.saas@gmail.com",
+    "role": "admin",
+    "equipe": "starter",
+    "equipes": [
+      "starter",
+      "skool"
+    ]
+  }
+]
