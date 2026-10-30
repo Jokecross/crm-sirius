@@ -940,6 +940,13 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 .grille-legende i.on{background:color-mix(in srgb,var(--green) 28%,var(--card))}
 .grille-legende i.rdv{background:var(--purple-bg);border-color:var(--purple)}
 
+/* ---- Accès Skool (Hermès) ---- */
+.skool-aide{margin:-4px 0 8px;font-size:12px;font-weight:600;color:var(--muted)}
+.skool-etat{margin:0 0 6px;padding:10px 12px;border-radius:12px;background:var(--tint);font-size:12.5px;font-weight:700;color:var(--text);line-height:1.45}
+.skool-etat.ok{background:var(--green-bg);color:var(--green)}
+.skool-etat.attente{background:var(--amber-bg);color:var(--amber)}
+.skool-etat.erreur{background:var(--red-bg);color:var(--red)}
+
 /* ---- Rendez-vous (équipe Skool) ---- */
 .tag-rdv{
   margin-left:7px;border-radius:99px;padding:2px 8px;
@@ -2418,7 +2425,7 @@ function bornesJour(decalage = 0){
   return [d.toISOString(), f.toISOString()];
 }
 
-const COLS = 'id,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,enr:lead_calls(count)';
+const COLS = 'id,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,invoices(created_at),enr:lead_calls(count)';
 
 /* Un lead qu'on a eu au téléphone doit avoir sa note et son
    enregistrement : c'est ce qui permet de reprendre le dossier et de
@@ -3020,6 +3027,8 @@ function dessinerPanneau(l){
       ${l.situation ? `<p style="margin:6px 0 0;font-size:12.5px;color:var(--muted);font-weight:600">Situation : <b style="color:var(--navy)">${echap(l.situation)}</b></p>` : ''}
     </div>
 
+    ${l.equipe === 'skool' ? blocSkool(l) : ''}
+
     <div class="bloc">
       <div class="bloc-t">Résultat de l'appel</div>
       <div class="statuts">
@@ -3121,6 +3130,31 @@ function blocRdv(l){
   </div>`;
 }
 
+/* L'accès Skool du client. Le setter note l'e-mail de son compte Skool
+   pendant l'appel ; une fois la facture déposée, Hermès (l'agent d'Anthony)
+   voit le client dans sa liste et ouvre les modules, puis le dit ici. */
+function blocSkool(l){
+  const f = factureDe(l);
+  const etat = l.skool_ouvert_at
+    ? `<p class="skool-etat ok">✓ Accès Skool ouvert le ${jourHeure(l.skool_ouvert_at)}${
+        l.skool_ouvert_par === 'hermes' ? ' par Hermès' : l.skool_ouvert_par ? ' par ' + echap(l.skool_ouvert_par) : ''}</p>`
+    : !f ? `<p class="skool-etat">Une fois la vente faite, dépose la facture (onglet Factures) : Hermès ouvrira l'accès Skool tout seul.</p>`
+    : l.skool_erreur ? `<p class="skool-etat erreur">Hermès n'a pas pu ouvrir l'accès : « ${echap(l.skool_erreur)} »${
+        l.skool_erreur_at ? ` (${jourHeure(l.skool_erreur_at)})` : ''}. Vérifie l'e-mail Skool : il réessaiera.</p>`
+    : `<p class="skool-etat attente">Facture déposée le ${jourHeure(f.created_at)} : en attente d'Hermès.</p>`;
+  return `<div class="bloc">
+      <div class="bloc-t">Accès Skool</div>
+      <div class="field">
+        <label for="p-email-skool">E-mail du compte Skool</label>
+        <input type="email" id="p-email-skool" value="${echap(l.email_skool || '')}" placeholder="${echap(l.email || 'son@email.com')}">
+      </div>
+      <p class="skool-aide">Celui avec lequel il est inscrit sur Skool. Vide = son e-mail de réservation.</p>
+      ${etat}
+      ${me.role === 'admin' && f && !l.skool_ouvert_at
+        ? '<button type="button" class="dispo-lien" data-skool-main>Marquer l\'accès comme ouvert à la main</button>' : ''}
+    </div>`;
+}
+
 function filActivite(){
   if (evenements === null){
     return `<div class="empty">Le journal d'activité n'est pas encore installé.<br><br>
@@ -3193,6 +3227,19 @@ $('panel').addEventListener('click', async (e) => {
 
   if (e.target.closest('[data-message]')) return basculerMessage(l);
 
+  if (e.target.closest('[data-skool-main]')){
+    try {
+      const [maj] = await api(`/rest/v1/leads?id=eq.${l.id}`, {
+        method: 'PATCH', headers: { 'Prefer': 'return=representation' },
+        body: JSON.stringify({ skool_ouvert_at: new Date().toISOString(), skool_ouvert_par: me.first_name || 'admin', skool_erreur: null }),
+      });
+      Object.assign(l, maj || {});
+      toast('Accès Skool marqué comme ouvert');
+      dessinerPanneau(l);
+    } catch (ex) { toast('Impossible : ' + ex.message, true); }
+    return;
+  }
+
   if (e.target.closest('[data-rdv-annuler]')){
     try {
       const [maj] = await api(`/rest/v1/leads?id=eq.${l.id}`, {
@@ -3258,6 +3305,13 @@ $('panel').addEventListener('click', async (e) => {
       notes:         $('p-notes').value.trim() || null,
     });
     if ($('p-setter')) l.setter_id = $('p-setter').value || null;
+    if ($('p-email-skool')){
+      const es = $('p-email-skool').value.trim().toLowerCase();
+      if (es && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(es)) return toast('L\'e-mail Skool n\'a pas l\'air valide.', true);
+      // Changer l'e-mail après une erreur d'Hermès : il réessaiera au prochain passage.
+      if (es !== (l.email_skool || '')) l.skool_erreur = null;
+      l.email_skool = es || null;
+    }
     save.disabled = true; save.textContent = 'Enregistrement…';
     const ok = await enregistrer(l);
     save.disabled = false; save.textContent = 'Enregistrer';
@@ -3331,6 +3385,9 @@ async function enregistrer(lead, discret = false){
         cash_collecte: lead.cash_collecte,
         notes:         lead.notes,
         called_at:     lead.dials > 0 ? new Date().toISOString() : null,
+        // L'accès Skool ne concerne que l'équipe Skool : les autres leads
+        // n'envoient pas ces colonnes.
+        ...(lead.equipe === 'skool' ? { email_skool: lead.email_skool || null, skool_erreur: lead.skool_erreur ?? null } : {}),
       })
     });
     if (maj && maj[0]) Object.assign(lead, maj[0]);
