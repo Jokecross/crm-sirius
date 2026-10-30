@@ -22,7 +22,7 @@ scripts/equipe.json                la liste de l'équipe
 | Équipe | Clé en base | Ce qu'elle travaille |
 |---|---|---|
 | **Base44** | `starter` | les leads du formulaire de la page de vente : vivier « Leads du jour », compte à rebours de 10 minutes, le premier setter qui prend le lead l'a pour lui |
-| **Skool** | `skool` | les appels réservés sur le calendrier de l'équipe : un seul lien `/rdv` pour tous, la personne choisit un créneau libre, l'appel est attribué au setter libre à cette heure-là et arrive dans son onglet **Rendez-vous**. Saisie à la main possible aussi (pipeline). |
+| **Skool** | `skool` | les appels réservés sur le calendrier de l'équipe : un seul lien `page-reservation.vercel.app` pour tous, la personne choisit un créneau libre, l'appel est attribué au setter libre à cette heure-là et arrive dans son onglet **Rendez-vous**. Saisie à la main possible aussi (pipeline). |
 
 Les deux sont étanches : un setter ne voit jamais les leads de l'autre équipe.
 La séparation vit dans les règles RLS de la base, pas seulement dans
@@ -34,8 +34,8 @@ l'autre. Un setter peut être ouvert aux deux avec `"equipes": ["starter", "skoo
 1. Chaque setter Skool remplit ses **Dispos** (onglet Dispos), comme toute
    l'équipe : ses créneaux de la semaine, à son heure à lui.
 2. En haut de l'onglet, **le lien de l'équipe**, le même pour tous :
-   `https://lpsirius.vercel.app/rdv` (boutons Copier et WhatsApp).
-3. La personne qui ouvre le lien (`rdv.html` de la page de vente) voit tous les
+   `https://page-reservation.vercel.app` (boutons Copier et WhatsApp).
+3. La personne qui ouvre le lien (site à part `~/Reservation Sirius`, dépôt Jokecross/page-reservation) voit tous les
    créneaux où au moins un setter est libre, à son heure, en choisit un et
    laisse prénom, nom, téléphone, e-mail. Elle peut ajouter l'appel à son
    agenda (Google, Apple, Outlook).
@@ -48,7 +48,7 @@ l'autre. Un setter peut être ouvert aux deux avec `"equipes": ["starter", "skoo
    haut, avec un badge pour ceux qui restent aujourd'hui. Dans la fiche,
    « Annuler le rendez-vous » libère le créneau.
 
-Un lien personnel existe aussi (`/rdv/<staff.rdv_code>`, ex. `/rdv/mathis`) :
+Un lien personnel existe aussi (`page-reservation.vercel.app/<staff.rdv_code>`, ex. `/mathis`) :
 il ne montre que les créneaux d'un setter. Le CRM ne l'affiche pas.
 
 Les créneaux = les dispos découpées au pas de la durée d'un appel, moins les
