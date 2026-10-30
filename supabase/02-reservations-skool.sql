@@ -183,7 +183,7 @@ revoke all on function public.rdv_setter(text) from public, anon, authenticated;
 -- ---------------------------------------------------------------------
 -- 5. Ce que voit le public : le prénom du setter et ses créneaux libres
 -- ---------------------------------------------------------------------
-create or replace function public.rdv_calendrier(p_code text)
+create or replace function public.rdv_calendrier(p_code text default null)
 returns jsonb
 language plpgsql stable security definer set search_path = public
 as $$

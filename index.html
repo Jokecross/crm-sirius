@@ -1976,10 +1976,10 @@ const EQUIPES = {
 };
 const DEFAUT_EQUIPE = 'starter';
 
-/* Le lien de réservation d'un setter Skool : la page de vente sert
-   /rdv/<code> (rdv.html). Le code est dans staff.rdv_code. */
-const RDV_URL = 'https://lpsirius.vercel.app/rdv/';
-const lienRdv = (s) => s && s.rdv_code ? RDV_URL + s.rdv_code : '';
+/* Le lien de réservation de l'équipe Skool, le même pour tous : la page de
+   vente sert /rdv (rdv.html) avec les créneaux libres de toute l'équipe, et
+   la base attribue l'appel au setter libre à l'heure choisie. */
+const RDV_URL = 'https://lpsirius.vercel.app/rdv';
 const definition = (eq) => EQUIPES[eq] || EQUIPES[DEFAUT_EQUIPE];
 
 const estPartenaire = () => me.role === 'partenaire';
@@ -3705,7 +3705,7 @@ function dessinerMesDispos(){
     </div>`}`;
 }
 
-/* Côté administrateur : le lien de chaque setter Skool, et les réglages
+/* Côté administrateur : le lien de l'équipe Skool, et les réglages
    des appels réservés (durée, préavis, horizon). */
 function blocLiensEquipe(setters){
   return `
@@ -3716,9 +3716,7 @@ function blocLiensEquipe(setters){
       sur les <input type="number" name="horizon" min="1" max="60" value="${reglagesCrm.rdv_horizon_jours || 14}" aria-label="Horizon"> prochains jours.
       <button type="submit" class="auto-btn principal">Enregistrer</button>
     </form>
-    <div class="rdv-liens">${setters.length
-      ? setters.map(x => blocLien(x, `Lien de ${nomStaff(x)}`)).join('')
-      : '<p class="dispo-limite">Aucun setter Skool pour l\'instant.</p>'}</div>`;
+    <div class="rdv-liens">${blocLien()}${setters.length ? '' : '<p class="dispo-limite">Aucun setter Skool pour l\'instant.</p>'}</div>`;
 }
 
 /* ---- Le lien de réservation (équipe Skool) ----
@@ -3726,26 +3724,25 @@ function blocLiensEquipe(setters){
    ouvre son lien voit ces créneaux, découpés en appels, moins ceux déjà
    réservés. */
 const enEquipeRdv = (s) => !!s && ((s.equipes || []).includes('skool') || s.equipe === 'skool');
-function blocLien(s, titre, note = ''){
-  const lien = lienRdv(s);
-  if (!lien) return `<div class="rdv-lien"><span>${echap(titre)}</span>
-    <p>Pas encore de lien : passe le fichier <b>02-reservations-skool.sql</b> dans Supabase.</p></div>`;
-  const msg = `Salut 👋 Réserve ton appel avec moi ici : ${lien}`;
-  return `<div class="rdv-lien"><span>${echap(titre)}</span>
+function blocLien(note = ''){
+  const msg = `Salut 👋 Réserve ton appel avec l'équipe d'Anthony Sirius ici : ${RDV_URL}`;
+  return `<div class="rdv-lien"><span>Le lien de réservation de l'équipe Skool</span>
     <div class="rdv-lien-ligne">
-      <code>${echap(lien)}</code>
-      <button type="button" class="auto-btn" data-rdv-copier="${echap(lien)}">Copier</button>
+      <code>${echap(RDV_URL)}</code>
+      <button type="button" class="auto-btn" data-rdv-copier="${echap(RDV_URL)}">Copier</button>
       <a class="auto-btn" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">WhatsApp</a>
     </div>
-    ${note ? `<p>${note}</p>` : ''}
+    <p>${note || `Le même lien pour toute l'équipe : la personne voit tous les créneaux où au moins un setter est
+      disponible, et l'appel va au setter libre à l'heure choisie (s'ils sont plusieurs, à celui qui a le moins
+      d'appels ce jour-là).`}</p>
   </div>`;
 }
 function blocMonLienRdv(){
   const moi = staff.find(x => x.user_id === me.user_id) || me;
   if (!enEquipeRdv(moi)) return '';
-  return blocLien(moi, 'Ton lien de réservation',
-    `Envoie-le à tes prospects : ils réservent un appel de ${reglagesCrm.rdv_duree_min || 30} min sur
-     les créneaux ci-dessous, et l'appel arrive dans ton onglet Rendez-vous. Sans dispos, personne ne peut réserver.`);
+  return blocLien(`Le même lien pour toute l'équipe. Tes dispos ci-dessous deviennent des créneaux de
+    ${reglagesCrm.rdv_duree_min || 30} min : quand quelqu'un en réserve un où tu es libre, l'appel peut t'être
+    attribué et arrive dans ton onglet Rendez-vous. Sans dispos, aucun appel pour toi.`);
 }
 
 const enregistrerDispo = (id, jour, debut, fin) => api('/rest/v1/rpc/enregistrer_dispo', {
