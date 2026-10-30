@@ -2,3 +2,4 @@ scripts/comptes.csv
 .DS_Store
 sauvegardes/
 scripts/compte-admin.sql
+scripts/comptes-skool.sql
