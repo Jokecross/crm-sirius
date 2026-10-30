@@ -34,7 +34,8 @@ l'autre. Un setter peut être ouvert aux deux avec `"equipes": ["starter", "skoo
 ## Le calendrier de l'équipe Skool
 
 1. Chaque setter Skool remplit ses **Dispos** sur une grille agenda (la
-   semaine, 8 h – 22 h, par demi-heure, à son heure à lui) : un clic coche ou
+   semaine, 8 h – 22 h, à son heure à lui) : une case = un appel de 15 min
+   (08:00 – 08:15), puis 15 min de pause (case suivante 08:30 – 08:45). Un clic coche ou
    décoche, « Journée » / « Vider » par jour, « Toute la semaine, 8 h – 22 h »
    d'un coup. Chaque clic s'enregistre tout de suite. On ne peut pas retirer
    une demi-heure où un appel est réservé. Ses appels apparaissent dans la grille.
