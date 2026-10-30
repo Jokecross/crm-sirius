@@ -26,6 +26,9 @@ curl -s -X POST "$URL/rest/v1/rpc/hermes_acces_a_ouvrir" \
 
 Réponse : un tableau, le plus ancien en premier. Vide = rien à faire.
 
+Tout client de la liste reçoit le même accès : `formule` (mensuel ou annuel) sert à
+nos comptes, pas au déblocage. Hermès retrouve le membre par `email_skool`.
+
 ```json
 [
   {
