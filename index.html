@@ -907,6 +907,36 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
   font-size:10px;font-weight:800;color:var(--muted);vertical-align:middle;
 }
 
+/* ---- La grille des setters Skool ---- */
+.grille-outils{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 10px}
+.grille-outils .dispo-total{flex:1;min-width:200px;margin:0}
+.grille-zone{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+.grille{width:100%;min-width:640px;border-collapse:separate;border-spacing:0;table-layout:fixed;user-select:none}
+.grille th,.grille td{border-bottom:1px solid var(--line)}
+.grille thead th{position:sticky;top:0;z-index:1;background:var(--card);padding:10px 4px 8px;text-align:center;font-weight:700}
+.grille thead th span{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.grille thead th b{display:block;font-family:var(--f-title);font-size:18px;color:var(--navy)}
+.grille thead th.auj b{color:var(--action)}
+.grille thead th.passe{opacity:.45}
+.grille-jour{margin-top:4px;padding:2px 8px;border:1px solid var(--line);border-radius:99px;background:var(--tint);font:700 11px var(--f-body);color:var(--navy);cursor:pointer}
+.grille tbody th{width:52px;padding:0 6px;text-align:right;vertical-align:top;font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1;padding-top:3px}
+.grille thead th:first-child{width:52px}
+.grille td{height:22px;border-left:1px solid var(--line);cursor:pointer;transition:background-color .1s ease}
+.grille tr:not(.heure-pleine) td{border-bottom-style:dashed}
+.grille td:hover{background:var(--tint)}
+.grille td.on{background:color-mix(in srgb,var(--green) 28%,var(--card))}
+.grille td.on:hover{background:color-mix(in srgb,var(--green) 40%,var(--card))}
+.grille td.rdv,.grille td.rdv:hover{background:var(--purple-bg);box-shadow:inset 3px 0 0 var(--purple)}
+.grille td.rdv span{display:block;padding:0 6px;font-size:10.5px;font-weight:800;color:var(--purple);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grille td.passe{cursor:default;opacity:.4}
+.grille td.passe:hover{background:none}
+.grille td.passe.on{background:color-mix(in srgb,var(--green) 18%,var(--card))}
+.grille.occupee td{cursor:progress}
+.grille-legende{display:flex;gap:16px;align-items:center;margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)}
+.grille-legende i{display:inline-block;width:14px;height:14px;margin-right:-10px;border-radius:4px;border:1px solid var(--line);background:var(--card);vertical-align:-2px}
+.grille-legende i.on{background:color-mix(in srgb,var(--green) 28%,var(--card))}
+.grille-legende i.rdv{background:var(--purple-bg);border-color:var(--purple)}
+
 /* ---- Rendez-vous (équipe Skool) ---- */
 .tag-rdv{
   margin-left:7px;border-radius:99px;padding:2px 8px;
@@ -3637,6 +3667,12 @@ async function chargerDispos(){
           `&semaine=in.(${plusJours(sem, -7)},${sem})&order=jour,debut`),
       api(`/rest/v1/dispos_absences?select=*&setter_id=eq.${me.user_id}&semaine=eq.${sem}`),
     ]);
+    // Les appels déjà réservés de la semaine : la grille les montre, et on ne
+    // retire pas une dispo sous un appel.
+    mesRdv = enEquipeRdv(staff.find(x => x.user_id === me.user_id) || me)
+      ? await api(`/rest/v1/leads?select=id,first_name,last_name,rdv_at,rdv_fin_at&setter_id=eq.${me.user_id}` +
+          `&rdv_annule_at=is.null&rdv_at=gte.${lireJour(sem).toISOString()}&rdv_at=lt.${lireJour(plusJours(sem, 7)).toISOString()}`).catch(() => [])
+      : [];
   } catch {
     zone.innerHTML = `<div class="fact-vide">Les dispos ne sont pas encore installées dans la base.<br>
       Passe le fichier <b>27-dispos-presence.sql</b> dans Supabase.</div>`;
@@ -3658,6 +3694,7 @@ function barreSemaine(min, max){
 }
 
 function dessinerMesDispos(){
+  if (enEquipeRdv(staff.find(x => x.user_id === me.user_id) || me)) return dessinerGrilleSkool();
   const sem = lundi(disposSemaine), auj = isoJour(new Date());
   const siens = dispos.filter(d => d.semaine === sem);
   const avant = dispos.filter(d => d.semaine === plusJours(sem, -7) && plusJours(d.jour, 7) >= auj);
@@ -3744,6 +3781,154 @@ function blocMonLienRdv(){
     ${reglagesCrm.rdv_duree_min || 15} min : quand quelqu'un en réserve un où tu es libre, l'appel peut t'être
     attribué et arrive dans ton onglet Rendez-vous. Sans dispos, aucun appel pour toi.`);
 }
+
+/* ---- La grille des setters Skool ----
+   Leurs dispos sont leur agenda : la semaine de 8 h à 22 h, par demi-heure.
+   Un clic coche ou décoche une demi-heure, « Journée entière » et « Toute la
+   semaine » cochent tout ; chaque changement s'enregistre aussitôt et part
+   sur la page de réservation. En base, ce sont les mêmes dispos que pour
+   tout le monde : les demi-heures qui se suivent forment un créneau. */
+const GRILLE_PAS = 30, GRILLE_DEBUT = 8 * 60, GRILLE_FIN = 22 * 60;
+let mesRdv = [];
+// Un appel qui commence dans cette demi-heure.
+const sousUnAppel = (r, jour, m) => new Date(r.rdv_at) >= instant(jour, m) && new Date(r.rdv_at) < instant(jour, m + GRILLE_PAS);
+
+const cellulesDe = (liste) => {
+  const set = new Set();
+  liste.forEach(d => { for (let m = enMinutes(d.debut); m < enMinutes(d.fin); m += GRILLE_PAS) set.add(m); });
+  return set;
+};
+// Des demi-heures cochées aux créneaux : celles qui se suivent n'en font qu'un.
+function plagesDe(set){
+  const ms = [...set].sort((a, b) => a - b), plages = [];
+  ms.forEach(m => {
+    const der = plages[plages.length - 1];
+    if (der && der.fin === m) der.fin = m + GRILLE_PAS; else plages.push({ debut: m, fin: m + GRILLE_PAS });
+  });
+  return plages;
+}
+// L'heure à laquelle une demi-heure de ce jour commence, à l'heure de ce navigateur.
+const instant = (jour, m) => { const d = lireJour(jour); d.setMinutes(m); return d; };
+
+function dessinerGrilleSkool(){
+  const sem = lundi(disposSemaine), auj = isoJour(new Date()), maintenant = Date.now();
+  const jours = JOURS.map((_, i) => plusJours(sem, i));
+  const siens = dispos.filter(d => d.semaine === sem);
+  const passee = Date.now() > limiteDe(sem);
+  // Ce qui dépasse 8 h – 22 h reste visible.
+  const bornes = siens.reduce(([a, b], d) => [Math.min(a, enMinutes(d.debut)), Math.max(b, enMinutes(d.fin))], [GRILLE_DEBUT, GRILLE_FIN]);
+  const debutG = Math.floor(bornes[0] / GRILLE_PAS) * GRILLE_PAS, finG = Math.ceil(bornes[1] / GRILLE_PAS) * GRILLE_PAS;
+  const lignes = []; for (let m = debutG; m < finG; m += GRILLE_PAS) lignes.push(m);
+  const parJour = Object.fromEntries(jours.map(j => [j, cellulesDe(siens.filter(d => d.jour === j))]));
+  const total = siens.reduce((n, d) => n + enMinutes(d.fin) - enMinutes(d.debut), 0);
+  const appelA = (jour, m) => mesRdv.find(r => sousUnAppel(r, jour, m));
+
+  $('disposZone').innerHTML = `
+    ${blocMonLienRdv()}
+    ${barreSemaine(0, 3)}
+    <p class="dispo-limite ${passee ? 'passee' : ''}">${passee && !sansLimite(sem)
+      ? `La limite était ${texteLimite(sem)}. Tu peux encore modifier, mais chaque changement est signalé.`
+      : sansLimite(sem) ? 'Coche les heures où tu peux prendre des appels. Chaque clic s\'enregistre tout de suite.'
+      : `À remplir avant ${texteLimite(sem)}, ton heure (${echap(ville(monFuseau()))}). Chaque clic s'enregistre tout de suite.`}</p>
+    <div class="grille-outils">
+      <p class="dispo-total">${siens.length ? `<b>${dureeTexte(total)}</b> de dispo cette semaine · ${mesRdv.length} appel${mesRdv.length > 1 ? 's' : ''} réservé${mesRdv.length > 1 ? 's' : ''}` : 'Aucune dispo pour l\'instant.'}</p>
+      <button type="button" class="auto-btn" data-grille-semaine="tout">Toute la semaine, 8 h – 22 h</button>
+      ${siens.length ? '<button type="button" class="auto-btn" data-grille-semaine="rien">Tout vider</button>' : ''}
+    </div>
+    <div class="grille-zone"><table class="grille">
+      <thead><tr><th></th>${jours.map(j => `<th class="${j < auj ? 'passe' : ''} ${j === auj ? 'auj' : ''}">
+        <span>${lireJour(j).toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')}</span><b>${lireJour(j).getDate()}</b>
+        ${j < auj ? '' : `<button type="button" class="grille-jour" data-grille-jour="${j}">${parJour[j].size ? 'Vider' : 'Journée'}</button>`}</th>`).join('')}</tr></thead>
+      <tbody>${lignes.map(m => `<tr class="${m % 60 ? '' : 'heure-pleine'}"><th>${m % 60 ? '' : versHeure(m)}</th>${jours.map(j => {
+        const passe = instant(j, m + GRILLE_PAS) <= maintenant, on = parJour[j].has(m), rdv = appelA(j, m);
+        return `<td class="${on ? 'on' : ''} ${passe ? 'passe' : ''} ${rdv ? 'rdv' : ''}" ${passe ? '' : `data-grille="${j}|${m}"`}
+          title="${echap(`${JOURS[(lireJour(j).getDay() + 6) % 7]} ${versHeure(m)}–${versHeure(m + GRILLE_PAS)}${rdv ? ' · appel avec ' + nomLead(rdv) : ''}`)}">${
+          rdv ? `<span>${echap(rdv.first_name || 'Appel')}</span>` : ''}</td>`;
+      }).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+    <p class="grille-legende"><i class="on"></i> Dispo <i class="rdv"></i> Appel réservé <i></i> Pas dispo</p>`;
+}
+
+/* Écrit un jour tel que la grille le veut : on garde ce qui ne bouge pas,
+   on ajuste, on retire, on ajoute — dans cet ordre, pour que deux créneaux
+   ne se chevauchent jamais en route. */
+async function ecrireJour(jour, voulu){
+  const avant = dispos.filter(d => d.jour === jour && !d.supprime_at)
+                      .map(d => ({ id: d.id, debut: enMinutes(d.debut), fin: enMinutes(d.fin) }));
+  const plages = plagesDe(voulu), libres = [...avant], paires = [];
+  plages.forEach(p => {
+    const i = libres.findIndex(e => e.debut < p.fin && e.fin > p.debut);
+    if (i >= 0) paires.push([libres.splice(i, 1)[0], p]); else paires.push([null, p]);
+  });
+  for (const e of libres)
+    await api('/rest/v1/rpc/supprimer_dispo', { method: 'POST', body: JSON.stringify({ p_id: e.id }) });
+  for (const [e, p] of paires.filter(([e, p]) => e && (e.debut !== p.debut || e.fin !== p.fin)))
+    await enregistrerDispo(e.id, jour, versHeure(p.debut), versHeure(p.fin));
+  for (const [, p] of paires.filter(([e]) => !e))
+    await enregistrerDispo(null, jour, versHeure(p.debut), versHeure(p.fin));
+}
+
+/* Les clics s'enchaînent vite : la grille change tout de suite à l'écran
+   (`voulu`), et les jours touchés s'écrivent un par un derrière. On ne
+   redessine qu'à la fin, depuis la base. */
+const voulu = new Map(), aEcrire = new Set();
+let ecriture = false;
+const etatDe = (jour) => voulu.get(jour)
+  || cellulesDe(dispos.filter(d => d.jour === jour && !d.supprime_at));
+
+async function ecrireEnAttente(){
+  if (ecriture) return;
+  ecriture = true;
+  let rate = null;
+  while (aEcrire.size){
+    const jour = aEcrire.values().next().value;
+    aEcrire.delete(jour);
+    try {
+      await ecrireJour(jour, new Set(voulu.get(jour)));
+      // Relire la semaine : le jour suivant se compare à la base, pas à l'écran.
+      dispos = await api(`/rest/v1/dispos?select=*&setter_id=eq.${me.user_id}&supprime_at=is.null` +
+                         `&semaine=in.(${plusJours(lundi(disposSemaine), -7)},${lundi(disposSemaine)})&order=jour,debut`);
+    } catch (err) { rate = err; }
+  }
+  ecriture = false;
+  voulu.clear();
+  if (rate) toast(erreurBase(rate), true);
+  await apresDispo();
+}
+function changer(jour, set){
+  voulu.set(jour, set);
+  aEcrire.add(jour);
+  document.querySelectorAll(`[data-grille^="${jour}|"]`).forEach(td =>
+    td.classList.toggle('on', set.has(Number(td.dataset.grille.split('|')[1]))));
+  ecrireEnAttente();
+}
+
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-grille]'), jb = e.target.closest('[data-grille-jour]'), sb = e.target.closest('[data-grille-semaine]');
+  if (!c && !jb && !sb) return;
+  const sem = lundi(disposSemaine), maintenant = Date.now();
+  // Les demi-heures d'un jour qu'on peut encore toucher (pas déjà passées).
+  const ouvertes = (jour) => { const l = []; for (let m = GRILLE_DEBUT; m < GRILLE_FIN; m += GRILLE_PAS) if (instant(jour, m + GRILLE_PAS) > maintenant) l.push(m); return l; };
+  const appel = (jour, m) => mesRdv.some(r => sousUnAppel(r, jour, m));
+  // Vider un jour garde le passé et les demi-heures où un appel est réservé.
+  const vide = (jour) => new Set([...etatDe(jour)].filter(m => instant(jour, m + GRILLE_PAS) <= maintenant || appel(jour, m)));
+
+  if (c){
+    const [jour, m] = c.dataset.grille.split('|'), min = Number(m), set = new Set(etatDe(jour));
+    if (set.has(min)){
+      if (appel(jour, min)) return toast('Un appel est réservé à cette heure : annule-le d\'abord depuis l\'onglet Rendez-vous.', true);
+      set.delete(min);
+    } else set.add(min);
+    return changer(jour, set);
+  }
+  if (jb){
+    const jour = jb.dataset.grilleJour;
+    return changer(jour, etatDe(jour).size ? vide(jour) : new Set([...etatDe(jour), ...ouvertes(jour)]));
+  }
+  const tout = sb.dataset.grilleSemaine === 'tout', auj = isoJour(new Date());
+  JOURS.map((_, i) => plusJours(sem, i)).filter(j => j >= auj).forEach(jour =>
+    changer(jour, tout ? new Set([...etatDe(jour), ...ouvertes(jour)]) : vide(jour)));
+});
 
 const enregistrerDispo = (id, jour, debut, fin) => api('/rest/v1/rpc/enregistrer_dispo', {
   method: 'POST',

@@ -5374,8 +5374,9 @@ order by first_name;
 --  Le lien de l'équipe (<page de vente>/rdv, sans code) montre tous les
 --  créneaux où au moins un setter Skool est libre. À la réservation,
 --  l'appel va au setter libre à cette heure-là ; s'ils sont plusieurs,
---  à celui qui a le moins d'appels réservés ce jour-là, puis le moins
---  d'appels à venir, puis au hasard.
+--  à celui qui a le moins d'appels réservés ce jour-là (heure de Paris),
+--  puis cette semaine, puis à venir, puis au hasard. Celui qui a déjà
+--  un appel dans la journée passe donc après les autres.
 --
 --  Les liens personnels (/rdv/<code>) marchent toujours : même fonctions,
 --  avec un code.
@@ -5452,7 +5453,10 @@ declare
   r     public.crm_reglages;
   qui   uuid;
   tel   text := regexp_replace(coalesce(p_telephone, ''), '[^0-9+]', '', 'g');
-  jour0 timestamptz := date_trunc('day', p_debut);
+  -- Le jour et la semaine de l'appel, à l'heure de Paris (pas en UTC : un
+  -- appel à 0 h 30 compte pour le bon jour).
+  jour0 timestamptz := date_trunc('day', p_debut at time zone 'Europe/Paris') at time zone 'Europe/Paris';
+  sem0  timestamptz := date_trunc('week', p_debut at time zone 'Europe/Paris') at time zone 'Europe/Paris';
 begin
   -- Une réservation à la fois pour toute l'équipe : la vérification du
   -- créneau, le choix du setter et l'insertion ne se croisent jamais.
@@ -5474,6 +5478,9 @@ begin
       (select count(*) from public.leads l
         where l.setter_id = e.user_id and l.rdv_annule_at is null
           and l.rdv_at >= jour0 and l.rdv_at < jour0 + interval '1 day'),
+      (select count(*) from public.leads l
+        where l.setter_id = e.user_id and l.rdv_annule_at is null
+          and l.rdv_at >= sem0 and l.rdv_at < sem0 + interval '7 days'),
       (select count(*) from public.leads l
         where l.setter_id = e.user_id and l.rdv_annule_at is null and l.rdv_at > now()),
       random()

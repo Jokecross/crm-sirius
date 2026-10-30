@@ -33,8 +33,11 @@ l'autre. Un setter peut être ouvert aux deux avec `"equipes": ["starter", "skoo
 
 ## Le calendrier de l'équipe Skool
 
-1. Chaque setter Skool remplit ses **Dispos** (onglet Dispos), comme toute
-   l'équipe : ses créneaux de la semaine, à son heure à lui.
+1. Chaque setter Skool remplit ses **Dispos** sur une grille agenda (la
+   semaine, 8 h – 22 h, par demi-heure, à son heure à lui) : un clic coche ou
+   décoche, « Journée » / « Vider » par jour, « Toute la semaine, 8 h – 22 h »
+   d'un coup. Chaque clic s'enregistre tout de suite. On ne peut pas retirer
+   une demi-heure où un appel est réservé. Ses appels apparaissent dans la grille.
 2. En haut de l'onglet, **le lien de l'équipe**, le même pour tous :
    `https://page-reservation.vercel.app` (boutons Copier et WhatsApp).
 3. La personne qui ouvre le lien (site à part `~/Reservation Sirius`, dépôt Jokecross/page-reservation) voit tous les
@@ -42,8 +45,9 @@ l'autre. Un setter peut être ouvert aux deux avec `"equipes": ["starter", "skoo
    laisse prénom, nom, téléphone, e-mail. Elle peut ajouter l'appel à son
    agenda (Google, Apple, Outlook).
 4. L'appel est attribué au setter libre à cette heure-là. S'ils sont
-   plusieurs : celui qui a le moins d'appels réservés ce jour-là, puis le moins
-   d'appels à venir, puis au hasard. Deux personnes peuvent donc réserver la
+   plusieurs : celui qui a le moins d'appels réservés ce jour-là (heure de
+   Paris), puis cette semaine, puis à venir, puis au hasard. Celui qui a déjà
+   un appel dans la journée passe après les autres. Deux personnes peuvent donc réserver la
    même heure s'il y a deux setters libres. Les administrateurs ne comptent pas.
 5. Le lead arrive dans l'équipe Skool, attribué, avec `rdv_at`. L'onglet
    **Rendez-vous** liste les appels du jour et à venir, le plus proche en
