@@ -1,5 +1,7 @@
 # CRM des setters — Sirius (premier client en 7 jours)
 
+En ligne : https://crm-sirius-xi.vercel.app · espace membre : https://espacemembre-sirius.vercel.app · réservation : https://page-reservation.vercel.app
+
 Back-office des setters d'Anthony Sirius, repris tel quel du CRM Marcuus
 (`~/CRM Marcuus`, non modifié), lui-même repris de Mexed. Un seul fichier
 (`index.html`), sans build : Vercel le sert tel quel. Il lit et écrit dans le
