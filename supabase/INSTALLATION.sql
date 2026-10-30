@@ -5096,7 +5096,7 @@ create policy "public peut deposer un lead"
 -- 1. Les réglages : durée d'un appel, préavis, jusqu'où on peut réserver
 -- ---------------------------------------------------------------------
 alter table public.crm_reglages
-  add column if not exists rdv_duree_min     int not null default 30,
+  add column if not exists rdv_duree_min     int not null default 15,
   add column if not exists rdv_delai_min     int not null default 60,
   add column if not exists rdv_horizon_jours int not null default 14;
 

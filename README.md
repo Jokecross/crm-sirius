@@ -53,7 +53,7 @@ il ne montre que les créneaux d'un setter. Le CRM ne l'affiche pas.
 
 Les créneaux = les dispos découpées au pas de la durée d'un appel, moins les
 rendez-vous pris, le préavis et l'horizon. Réglables par un admin en haut de
-Dispos (équipe Skool choisie) : **30 min** par appel, **60 min** de préavis,
+Dispos (équipe Skool choisie) : **15 min** par appel, **60 min** de préavis,
 **14 jours** d'horizon par défaut.
 
 Côté base : le public n'a accès qu'à deux fonctions, `rdv_calendrier(code)`

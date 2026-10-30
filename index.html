@@ -3711,7 +3711,7 @@ function blocLiensEquipe(setters){
   return `
     <form class="rdv-reglage" id="rdvReglage">
       <span>Appels réservés :</span>
-      <input type="number" name="duree" min="10" max="180" step="5" value="${reglagesCrm.rdv_duree_min || 30}" aria-label="Durée d'un appel"> min chacun,
+      <input type="number" name="duree" min="10" max="180" step="5" value="${reglagesCrm.rdv_duree_min || 15}" aria-label="Durée d'un appel"> min chacun,
       réservables au plus tôt <input type="number" name="delai" min="0" max="2880" step="15" value="${reglagesCrm.rdv_delai_min ?? 60}" aria-label="Préavis"> min à l'avance,
       sur les <input type="number" name="horizon" min="1" max="60" value="${reglagesCrm.rdv_horizon_jours || 14}" aria-label="Horizon"> prochains jours.
       <button type="submit" class="auto-btn principal">Enregistrer</button>
@@ -3741,7 +3741,7 @@ function blocMonLienRdv(){
   const moi = staff.find(x => x.user_id === me.user_id) || me;
   if (!enEquipeRdv(moi)) return '';
   return blocLien(`Le même lien pour toute l'équipe. Tes dispos ci-dessous deviennent des créneaux de
-    ${reglagesCrm.rdv_duree_min || 30} min : quand quelqu'un en réserve un où tu es libre, l'appel peut t'être
+    ${reglagesCrm.rdv_duree_min || 15} min : quand quelqu'un en réserve un où tu es libre, l'appel peut t'être
     attribué et arrive dans ton onglet Rendez-vous. Sans dispos, aucun appel pour toi.`);
 }
 
