@@ -907,6 +907,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 }
 .tag-page.jvj{background:#E3B64F;color:#0B0B0C}
 .panel-head .tag-page{margin-left:0}
+.lien-espace{text-decoration:none}
 
 .tag-src{
   margin-left:7px;border-radius:99px;padding:2px 7px;
@@ -1980,6 +1981,7 @@ const VUES = [
 /* L'espace membre, où mènent les invitations créées depuis l'onglet
    Automatique. */
 const ESPACE_URL = 'https://espacemembre-sirius.vercel.app';
+const ESPACE_JVJ_URL = 'https://espacemembre-jvj.vercel.app';
 
 /* Les partenaires d'acquisition : un lien de tracking par agence, et le
    pourcentage du cash encaissé qui lui revient. Ajouter une agence tient
@@ -3108,6 +3110,7 @@ function dessinerPanneau(l){
             ? `Formulaire rempli le ${jourCourt(l.formulaire_at)} · ${echap(depuis(l.formulaire_at))}`
             : `Ajouté le ${jourCourt(l.created_at)}`}${
           pagePastille(l) ? ` · ${pagePastille(l)}` : ''}${
+          l.offre === 'jvj' ? ` · <a class="tag-page jvj lien-espace" href="${ESPACE_JVJ_URL}/admin" target="_blank" rel="noopener">Créer l'accès JVJ ↗</a>` : ''}${
           via(l) ? ` · <span class="tag-via">Via ${echap(via(l))}</span>` : ''}</span>
       </div>
       <button class="panel-close" data-fermer aria-label="Fermer">✕</button>
