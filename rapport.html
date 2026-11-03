@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rapport des leads</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050607">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fond:#050607; --carte:#0E0F10; --carte-2:#141516; --ligne:#232526;
+  --texte:#FFFFFF; --gris:#A5A6A7; --rouge:#AE0000; --or:#E3B64F;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fond);color:var(--texte);font:500 15px/1.5 Poppins,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+h1,h2{margin:0;font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.01em;line-height:1.16}
+h1{font-size:clamp(32px,9vw,52px)}
+h2{font-size:22px}
+.maj{margin:6px 0 0;color:var(--gris);font-size:13px}
+section{margin-top:32px}
+.deux{display:grid;gap:16px;align-items:start}
+@media (min-width:820px){.deux{grid-template-columns:1fr 1fr}}
+.carte{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;padding:18px 16px}
+.carte h2{margin-bottom:12px}
+.defile{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11px;font-weight:600;color:var(--gris);text-align:right;padding:6px 6px;white-space:nowrap;border-bottom:1px solid var(--ligne)}
+td{text-align:right;padding:10px 6px;border-bottom:1px solid var(--ligne);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+th:last-child,td:last-child{padding-right:0}
+tr:last-child td{border-bottom:0}
+tr.total td{font-weight:700}
+.pastille{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:700}
+.pastille.sirius{background:var(--rouge);color:#fff}
+.pastille.jvj{background:var(--or);color:#0B0B0C}
+.barre{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.filtres{display:flex;flex-wrap:wrap;gap:8px}
+button,select,input{font:inherit;color:inherit}
+.pill{min-height:40px;padding:0 14px;border-radius:99px;border:1px solid var(--ligne);background:var(--carte);cursor:pointer;font-size:13.5px;font-weight:600}
+.pill.on{background:var(--rouge);border-color:var(--rouge);color:#fff}
+select,input[type=date]{min-height:40px;padding:0 10px;border-radius:10px;border:1px solid var(--ligne);background:var(--carte);font-size:14px;color-scheme:dark}
+.dates{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13.5px;color:var(--gris)}
+.dates[hidden]{display:none}
+.vide{color:var(--gris);padding:14px 0;margin:0}
+.note{margin-top:28px;color:var(--gris);font-size:12.5px;line-height:1.6}
+.erreur{margin-top:24px;padding:14px 16px;border-radius:12px;background:#2A1012;border:1px solid #5C2023}
+:focus-visible{outline:2px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Rapport des leads</h1>
+  <p class="maj" id="maj">Chargement…</p>
+  <div class="erreur" id="erreur" role="alert" hidden></div>
+
+  <div id="contenu" hidden>
+    <section class="deux">
+      <div class="carte"><h2>Aujourd'hui</h2><div class="defile" id="auj"></div></div>
+      <div class="carte"><h2>Ce mois-ci</h2><div class="defile" id="mois"></div></div>
+    </section>
+
+    <section>
+      <div class="barre">
+        <h2>Détail</h2>
+        <button type="button" class="pill" id="export">Télécharger pour Excel</button>
+      </div>
+      <div class="barre">
+        <div class="filtres">
+          <select id="periode" aria-label="Période">
+            <option value="mois">Ce mois-ci</option>
+            <option value="precedent">Mois dernier</option>
+            <option value="7">7 derniers jours</option>
+            <option value="30">30 derniers jours</option>
+            <option value="choix">Dates au choix</option>
+          </select>
+          <div class="dates" id="dates" hidden>
+            <input type="date" id="du" aria-label="Du"> au <input type="date" id="au" aria-label="Au">
+          </div>
+        </div>
+        <div class="filtres" id="pages">
+          <button type="button" class="pill on" data-page="">Toutes</button>
+          <button type="button" class="pill" data-page="sirius">Sirius</button>
+          <button type="button" class="pill" data-page="jvj">JVJ</button>
+        </div>
+      </div>
+      <div class="deux">
+        <div class="carte"><h2>Par source</h2><div class="defile" id="origines"></div></div>
+        <div class="carte"><h2>Jour par jour</h2><div class="defile" id="jours"></div></div>
+      </div>
+    </section>
+
+    <p class="note">Leads des pages de vente Sirius et JVJ, heure de Paris. Un lead compte le jour où il arrive, une vente et son cash le jour où la vente est conclue : un lead d'hier vendu aujourd'hui compte dans les ventes d'aujourd'hui. Le taux = ventes ÷ leads reçus sur la période. Ventes et cash viennent de ce que les setters saisissent dans le CRM.</p>
+  </div>
+</main>
+
+<script>
+var SUPABASE_URL = 'https://mmpazpnzkmianenkfyiv.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tcGF6cG56a21pYW5lbmtmeWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMDgwOTcsImV4cCI6MjEwODg4NDA5N30.UhmwlOXXjj-q6MB1qR_uBNCd7anEkgYdk2Egp_9R6RA';
+
+/* La clé est après le # : elle ne part jamais dans une requête vers le site. */
+var CLE = decodeURIComponent(location.hash.slice(1));
+var $ = function(id){ return document.getElementById(id); };
+var NOMS = { sirius: 'Sirius', jvj: 'JVJ' };
+var pageChoisie = '', detail = null, bornes = null;
+
+function jourParis(d){
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' }).format(d || new Date());
+}
+function decaler(jour, n){
+  var d = new Date(jour + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function rapport(du, au){
+  return fetch(SUPABASE_URL + '/rest/v1/rpc/rapport_pages', {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_cle: CLE, p_du: du, p_au: au })
+  }).then(function(r){
+    return r.json().then(function(j){ if (!r.ok) throw new Error(j.message || 'Erreur'); return j; });
+  });
+}
+function nb(n){ return Number(n || 0).toLocaleString('fr-FR'); }
+function usd(n){ return '$' + Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); }
+function taux(v, l){ return l ? Math.round(v / l * 100) + ' %' : '–'; }
+function echap(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+function pastille(o){ return '<span class="pastille ' + o + '">' + NOMS[o] + '</span>'; }
+function libelleSource(s){
+  var noms = { jvj: 'Lien JVJ', tiktok: 'TikTok', youtube: 'YouTube' };
+  if (noms[s]) return noms[s];
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function ligne(tete, x, classe){
+  return '<tr' + (classe ? ' class="' + classe + '"' : '') + '><td>' + tete + '</td><td>' + nb(x.leads) + '</td><td>' + nb(x.appeles) + '</td><td>' + nb(x.ventes) + '</td><td>' + usd(x.cash) + '</td><td>' + taux(x.ventes, x.leads) + '</td></tr>';
+}
+var TETE = '<thead><tr><th>Page</th><th>Leads</th><th>Appelés</th><th>Ventes</th><th>Cash</th><th>Taux</th></tr></thead>';
+function somme(liste){
+  return liste.reduce(function(t, x){
+    t.leads += +x.leads; t.appeles += +x.appeles; t.ventes += +x.ventes; t.cash += +x.cash; return t;
+  }, { leads:0, appeles:0, ventes:0, cash:0 });
+}
+function resume(id, r){
+  $(id).innerHTML = '<table>' + TETE + '<tbody>' +
+    r.offres.map(function(o){ return ligne(pastille(o.offre), o); }).join('') +
+    ligne('Total', somme(r.offres), 'total') + '</tbody></table>';
+}
+function rendreDetail(){
+  var r = detail; if (!r) return;
+  var src = r.origines.filter(function(s){ return !pageChoisie || s.offre === pageChoisie; });
+  var agr = {};
+  src.forEach(function(s){
+    var k = s.origine;
+    var a = agr[k] = agr[k] || { origine: k, leads: 0, ventes: 0, cash: 0 };
+    a.leads += +s.leads; a.ventes += +s.ventes; a.cash += +s.cash;
+  });
+  var lignes = Object.keys(agr).map(function(k){ return agr[k]; }).sort(function(a, b){ return b.leads - a.leads; });
+  $('origines').innerHTML = lignes.length
+    ? '<table><thead><tr><th>Source</th><th>Leads</th><th>Ventes</th><th>Cash</th></tr></thead><tbody>' + lignes.map(function(s){
+        return '<tr><td>' + echap(libelleSource(s.origine)) + '</td><td>' + nb(s.leads) + '</td><td>' + nb(s.ventes) + '</td><td>' + usd(s.cash) + '</td></tr>';
+      }).join('') + '</tbody></table>'
+    : '<p class="vide">Aucun lead sur cette période.</p>';
+
+  var jours = {};
+  r.jours.forEach(function(j){
+    if (pageChoisie && j.offre !== pageChoisie) return;
+    (jours[j.jour] = jours[j.jour] || []).push(j);
+  });
+  var html = Object.keys(jours).sort().reverse().map(function(jour){
+    var s = somme(jours[jour]);
+    var d = new Date(jour + 'T12:00:00Z').toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', timeZone:'UTC' });
+    return '<tr><td>' + d + '</td><td>' + nb(s.leads) + '</td><td>' + nb(s.appeles) + '</td><td>' + nb(s.ventes) + '</td><td>' + usd(s.cash) + '</td></tr>';
+  }).join('');
+  $('jours').innerHTML = '<table><thead><tr><th>Jour</th><th>Leads</th><th>Appelés</th><th>Ventes</th><th>Cash</th></tr></thead><tbody>' + html + '</tbody></table>';
+}
+function periode(){
+  var v = $('periode').value, auj = jourParis();
+  $('dates').hidden = v !== 'choix';
+  if (v === 'mois') return [auj.slice(0, 8) + '01', auj];
+  if (v === '7') return [decaler(auj, -6), auj];
+  if (v === '30') return [decaler(auj, -29), auj];
+  if (v === 'precedent'){
+    var fin = decaler(auj.slice(0, 8) + '01', -1);
+    return [fin.slice(0, 8) + '01', fin];
+  }
+  return [$('du').value, $('au').value];
+}
+function chargerDetail(){
+  var b = periode();
+  if (!b[0] || !b[1] || b[1] < b[0]) return Promise.resolve();
+  bornes = b;
+  return rapport(b[0], b[1]).then(function(r){ detail = r; rendreDetail(); }).catch(montrerErreur);
+}
+function chargerTout(){
+  var auj = jourParis();
+  return Promise.all([rapport(auj, auj), rapport(auj.slice(0, 8) + '01', auj)]).then(function(x){
+    resume('auj', x[0]); resume('mois', x[1]);
+    $('contenu').hidden = false; $('erreur').hidden = true;
+    $('maj').textContent = 'Mis à jour à ' + new Date(x[0].maj).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' }) + ' (heure de Paris)';
+    return chargerDetail();
+  }).catch(montrerErreur);
+}
+function montrerErreur(e){
+  $('maj').textContent = '';
+  $('erreur').hidden = false;
+  $('erreur').textContent = /Clé invalide/.test(e.message) ? 'Ce lien n\'est pas valide.' : 'Le rapport n\'a pas pu être chargé. Réessaie dans un instant.';
+}
+function exporter(){
+  if (!detail) return;
+  var L = [['Jour','Page','Leads','Appelés','Ventes','Cash ($)'].join(';')];
+  detail.jours.slice().reverse().forEach(function(j){
+    if (!pageChoisie || j.offre === pageChoisie) L.push([j.jour, NOMS[j.offre], j.leads, j.appeles, j.ventes, j.cash].join(';'));
+  });
+  L.push(''); L.push(['Source','Page','Leads','Ventes','Cash ($)'].join(';'));
+  detail.origines.forEach(function(s){
+    if (!pageChoisie || s.offre === pageChoisie) L.push([libelleSource(s.origine).replace(/;/g, ','), NOMS[s.offre], s.leads, s.ventes, s.cash].join(';'));
+  });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'rapport-leads-' + bornes[0] + '-au-' + bornes[1] + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+$('periode').addEventListener('change', chargerDetail);
+$('du').addEventListener('change', chargerDetail);
+$('au').addEventListener('change', chargerDetail);
+$('export').addEventListener('click', exporter);
+$('pages').addEventListener('click', function(e){
+  var b = e.target.closest('[data-page]'); if (!b) return;
+  pageChoisie = b.getAttribute('data-page');
+  [].forEach.call($('pages').children, function(x){ x.classList.toggle('on', x === b); });
+  rendreDetail();
+});
+var auj0 = jourParis();
+$('du').value = auj0.slice(0, 8) + '01'; $('au').value = auj0;
+
+if (!CLE){
+  montrerErreur(new Error('Clé invalide'));
+} else {
+  chargerTout();
+  setInterval(chargerTout, 120000);
+}
+</script>
+</body>
+</html>

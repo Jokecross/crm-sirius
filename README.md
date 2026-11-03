@@ -109,3 +109,14 @@ de vente, lui, ne peut toujours déposer que chez Base44.
 
 L'onglet **Automatique** (le parcours sans appel des numéros africains) : la page
 Sirius n'a pas ce parcours. Le code et les tables restent, inutilisés.
+
+## Deux pages de vente, un seul CRM
+
+Les leads de la page Sirius et de la page JVJ arrivent ici, dans l'équipe Base44. La colonne
+`leads.offre` (`sirius` ou `jvj`) dit d'où ils viennent : pastille sur la liste et la fiche,
+filtre « Page » du tableau de bord (`crm_stats`, paramètre `p_offre`).
+
+**Rapport d'Anthony** : `rapport.html#<clé>`, sans connexion, des chiffres seuls (RPC
+`rapport_pages`, aucune fiche). La clé est dans `scripts/rapport-cle.txt` (hors git) ; seule son
+empreinte est en base (`cles_integration`, nom `rapport`). Pour la changer, remplacer l'empreinte.
+

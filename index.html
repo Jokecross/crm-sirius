@@ -1851,6 +1851,11 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
           <option value="formulaire">Leads des setters</option>
           <option value="auto">Parcours automatique</option>
         </select>
+        <select id="dashOffre" aria-label="Page de vente">
+          <option value="">Toutes les pages</option>
+          <option value="sirius">Page Sirius</option>
+          <option value="jvj">Page JVJ</option>
+        </select>
       </div>
       </div>
       <div id="kpiZone"></div>
@@ -3443,6 +3448,7 @@ $('dateFin').addEventListener('change', chargerStats);
 
 $('dashSetter').addEventListener('change', chargerStats);
 $('dashSource').addEventListener('change', chargerStats);
+$('dashOffre').addEventListener('change', chargerStats);
 $('saisieForm').addEventListener('submit', (e) => { e.preventDefault(); saisirLead(e.target); });
 $('equipe').addEventListener('change', () => {
   // Changer d'équipe, c'est changer de monde : la vue en cours peut ne pas
@@ -6225,7 +6231,10 @@ async function chargerStats(){
   const nom = qui && qui !== me.user_id
     ? (staff.find(s => s.user_id === qui) || {}).first_name
     : null;
-  const vivier = { formulaire: 'leads du formulaire', iclosed: 'relances iClosed' }[$('dashSource').value];
+  const vivier = [
+    { formulaire: 'leads du formulaire', iclosed: 'relances iClosed' }[$('dashSource').value],
+    { sirius: 'page Sirius', jvj: 'page JVJ' }[$('dashOffre').value]
+  ].filter(Boolean).join(' · ');
   // Sur une plage choisie à la main, on rappelle laquelle : le menu dit
   // « Dates au choix », ce qui ne dit rien des dates.
   const quand = $('periode').value === 'perso' && (a || b)
@@ -6245,7 +6254,8 @@ async function chargerStats(){
         p_fin:   b ? b.toISOString() : null,
         p_setter: qui,
         p_vivier: $('dashSource').value || null,
-        p_equipe: equipeChoisie()
+        p_equipe: equipeChoisie(),
+        p_offre: $('dashOffre').value || null
       })
     });
     const eur = (n) => Number(n).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
