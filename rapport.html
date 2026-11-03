@@ -28,6 +28,7 @@ section{margin-top:32px}
 @media (min-width:820px){.deux{grid-template-columns:1fr 1fr}}
 .carte{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;padding:18px 16px}
 .carte h2{margin-bottom:12px}
+.pile{display:grid;gap:16px}
 .defile{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{font-size:11px;font-weight:600;color:var(--gris);text-align:right;padding:6px 6px;white-space:nowrap;border-bottom:1px solid var(--ligne)}
@@ -90,7 +91,10 @@ select,input[type=date]{min-height:40px;padding:0 10px;border-radius:10px;border
         </div>
       </div>
       <div class="deux">
-        <div class="carte"><h2>Par source</h2><div class="defile" id="origines"></div></div>
+        <div class="pile">
+          <div class="carte"><h2>Par offre</h2><div class="defile" id="formules"></div></div>
+          <div class="carte"><h2>Par source</h2><div class="defile" id="origines"></div></div>
+        </div>
         <div class="carte"><h2>Jour par jour</h2><div class="defile" id="jours"></div></div>
       </div>
     </section>
@@ -107,6 +111,7 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 var CLE = decodeURIComponent(location.hash.slice(1));
 var $ = function(id){ return document.getElementById(id); };
 var NOMS = { sirius: 'Sirius', jvj: 'JVJ' };
+var FORMULES = [['monthly', 'Mensuel Builder'], ['yearly', 'Annuel Starter'], ['yearly_builder', 'Annuel Builder']];
 var pageChoisie = '', detail = null, bornes = null;
 
 function jourParis(d){
@@ -165,6 +170,15 @@ function rendreDetail(){
       }).join('') + '</tbody></table>'
     : '<p class="vide">Aucun lead sur cette période.</p>';
 
+  var parFormule = FORMULES.map(function(f){
+    var x = r.formules.filter(function(v){ return v.formule === f[0] && (!pageChoisie || v.offre === pageChoisie); });
+    return x.reduce(function(t, v){ t.ventes += +v.ventes; t.cash += +v.cash; t.commissions += +v.commissions; return t; },
+      { nom: f[1], ventes: 0, cash: 0, commissions: 0 });
+  });
+  $('formules').innerHTML = '<table><thead><tr><th>Offre</th><th>Ventes</th><th>Cash</th><th>Setters</th></tr></thead><tbody>' + parFormule.map(function(f){
+    return '<tr><td>' + f.nom + '</td><td>' + nb(f.ventes) + '</td><td>' + usd(f.cash) + '</td><td>' + usd(f.commissions) + '</td></tr>';
+  }).join('') + '</tbody></table>';
+
   var jours = {};
   r.jours.forEach(function(j){
     if (pageChoisie && j.offre !== pageChoisie) return;
@@ -214,6 +228,10 @@ function exporter(){
   var L = [['Jour','Page','Leads','Appelés','Ventes','Cash ($)'].join(';')];
   detail.jours.slice().reverse().forEach(function(j){
     if (!pageChoisie || j.offre === pageChoisie) L.push([j.jour, NOMS[j.offre], j.leads, j.appeles, j.ventes, j.cash].join(';'));
+  });
+  L.push(''); L.push(['Offre','Page','Ventes','Cash ($)','Commissions setters ($)'].join(';'));
+  detail.formules.forEach(function(f){
+    if (!pageChoisie || f.offre === pageChoisie) L.push([FORMULES.filter(function(x){ return x[0] === f.formule; })[0][1], NOMS[f.offre], f.ventes, f.cash, f.commissions].join(';'));
   });
   L.push(''); L.push(['Source','Page','Leads','Ventes','Cash ($)'].join(';'));
   detail.origines.forEach(function(s){

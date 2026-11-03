@@ -395,6 +395,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 .s-follow_up{background:var(--amber)}
 .s-monthly{background:var(--green)}
 .s-yearly{background:#2F5E40}
+.s-yearly_builder{background:#1B3D29}
 .s-ghosted{background:var(--purple)}
 .s-time_waster{background:#8A857D}
 .s-pas_de_reponse{background:var(--line-strong)}
@@ -1940,8 +1941,9 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const STATUTS = [
   ['nouveau',        'Nouveau'],
   ['follow_up',      'Follow Up'],
-  ['monthly',        'Monthly'],
-  ['yearly',         'Yearly'],
+  ['monthly',        'Mensuel Builder'],
+  ['yearly',         'Annuel Starter'],
+  ['yearly_builder', 'Annuel Builder'],
   ['pas_de_reponse', 'Pas de réponse'],
   ['ghosted',        'Ghosted'],
   ['time_waster',    'Time Waster'],
@@ -1949,12 +1951,14 @@ const STATUTS = [
 ];
 const LIBELLE = Object.fromEntries(STATUTS);
 /* Le prix de chaque offre, et le taux de commission qui va avec.
-   Mensuel : 200 $, 10 % → 20 $. Annuel : 250 $, 15 % → 37,50 $.
-   Le montant reste modifiable : si le setter encaisse autre chose, la
-   commission suit, puisque la base la calcule sur le cash réellement collecté. */
+   Mensuel Builder : 250 $, 10 % → 25 $. Annuel Starter : 250 $, 12,5 % → 31,25 $.
+   Annuel Builder : 450 $, 15 % → 67,50 $.
+   Simple affichage : la base impose elle-même montant et commission
+   (supabase/07-trois-offres.sql). */
 const OFFRES = {
-  monthly: { prix: 200, taux: 0.10 },
-  yearly:  { prix: 250, taux: 0.15 },
+  monthly:        { prix: 250, taux: 0.10 },
+  yearly:         { prix: 250, taux: 0.125 },
+  yearly_builder: { prix: 450, taux: 0.15 },
 };
 const estVente = (statut) => statut in OFFRES;
 
@@ -2446,7 +2450,7 @@ const COLS = 'id,offre,created_at,first_name,last_name,email,phone,status,setter
    coacher. Pas de réponse, faux numéro ou nouveau : il n'y a pas eu de
    conversation, rien à exiger. L'administrateur voit la ligne rougir ;
    le setter, une simple étiquette, sans rouge. */
-const STATUTS_A_DOSSIER = ['follow_up', 'monthly', 'yearly', 'ghosted', 'time_waster'];
+const STATUTS_A_DOSSIER = ['follow_up', 'monthly', 'yearly', 'yearly_builder', 'ghosted', 'time_waster'];
 const nbEnregistrements = (l) => (l.enr && l.enr[0] && l.enr[0].count) || 0;
 function manquesDe(l){
   if (!STATUTS_A_DOSSIER.includes(l.status)) return [];
@@ -2547,7 +2551,7 @@ async function majCompteurs(){
       api(`/rest/v1/leads?select=id&status=eq.follow_up&setter_id=eq.${me.user_id}&equipe=eq.${eq}`),
       api(`/rest/v1/leads?select=id&status=eq.follow_up&setter_id=eq.${me.user_id}&follow_up_at=lt.${new Date().toISOString()}`),
       // Ses ventes, et la facture de chacune : ce qui manque fait le badge.
-      api(`/rest/v1/leads?select=id,invoices(id)&status=in.(monthly,yearly)&setter_id=eq.${me.user_id}&equipe=eq.${eq}`)
+      api(`/rest/v1/leads?select=id,invoices(id)&status=in.(monthly,yearly,yearly_builder)&setter_id=eq.${me.user_id}&equipe=eq.${eq}`)
         .catch(() => []),
       // Les leads iClosed qu'on lui a attribués et qu'il n'a pas encore
       // touchés : c'est sa pile du matin.
@@ -3099,8 +3103,8 @@ function dessinerPanneau(l){
 
     ${estVente(l.status)
       ? `<div class="gain">
-           <span>Ta commission <small>${OFFRES[l.status].taux * 100} % d'un ${
-             l.status === 'monthly' ? 'mensuel' : 'annuel'} à ${OFFRES[l.status].prix} $</small></span>
+           <span>Ta commission <small>${String(OFFRES[l.status].taux * 100).replace('.', ',')} % d'un ${
+             LIBELLE[l.status]} à ${OFFRES[l.status].prix} $</small></span>
            <span class="num">${(OFFRES[l.status].prix * OFFRES[l.status].taux).toFixed(2)} $</span>
          </div>` : ''}`;
 
@@ -3298,8 +3302,8 @@ $('panel').addEventListener('click', async (e) => {
   const st = e.target.closest('[data-st]');
   if (st){
     l.status = st.dataset.st;
-    // Le montant n'est pas une saisie : il découle de l'offre. Un mensuel
-    // vaut 200 $, un annuel 250 $, et tout le reste ne rapporte rien.
+    // Le montant n'est pas une saisie : il découle de l'offre, et tout le
+    // reste ne rapporte rien.
     l.cash_collecte = estVente(l.status) ? OFFRES[l.status].prix : 0;
     if (!l.setter_id) l.setter_id = me.user_id;
     dessinerPanneau(l);
@@ -4460,7 +4464,7 @@ document.addEventListener('change', (e) => {
      geste, avec son auteur et son heure. C'est lui qu'on relit.
    Le parcours automatique est à part, comme dans le Dashboard.
    ============================================================ */
-const JOINTS = ['follow_up', 'monthly', 'yearly', 'ghosted', 'time_waster'];
+const JOINTS = ['follow_up', 'monthly', 'yearly', 'yearly_builder', 'ghosted', 'time_waster'];
 const DIX_MIN = 10 * 60 * 1000;
 let rapJour = '', rapFuseau = 'local', rapSetter = '', rapDonnees = null;
 
@@ -4632,7 +4636,7 @@ function dessinerRapport(){
   const col = (x) => [
     x.pris, x.appeles.length, x.appels, x.joints.length, pct(x.joints.length, x.appeles.length),
     x.statuts.pas_de_reponse || 0, x.statuts.faux_numero || 0, x.statuts.ghosted || 0, x.statuts.time_waster || 0,
-    x.statuts.follow_up || 0, x.statuts.monthly || 0, x.statuts.yearly || 0,
+    x.statuts.follow_up || 0, x.statuts.monthly || 0, x.statuts.yearly || 0, x.statuts.yearly_builder || 0,
     x.ventes.length, pct(x.ventes.length, x.joints.length), dollars(x.cash)];
 
   const plage = `de ${heureTxt(d)} à ${heureTxt(f)}${rapFuseau === 'paris' ? ' (heure de Paris)' : ''}`;
@@ -4674,7 +4678,7 @@ function dessinerRapport(){
     <p class="rap-aide">Le travail du bloc 2, réparti par setter. Un lead appelé par deux setters compte chez les deux, une seule fois dans le total.</p>
     ${lignes.length ? `<div class="dispo-planning-zone"><table class="rap-table">
       <thead><tr><th>Setter</th><th>Pris</th><th>Appelés</th><th>Appels</th><th>Joints</th><th>% joints</th>
-        <th>Pas de rép.</th><th>Faux n°</th><th>Ghosted</th><th>Time w.</th><th>Follow up</th><th>Monthly</th><th>Yearly</th>
+        <th>Pas de rép.</th><th>Faux n°</th><th>Ghosted</th><th>Time w.</th><th>Follow up</th><th>Mensuel B.</th><th>Annuel S.</th><th>Annuel B.</th>
         <th>Closings</th><th>% closing</th><th>Cash</th></tr></thead>
       <tbody>${lignes.map(x => `<tr><th>${echap(nomStaff(x.s))}${x.s.role === 'admin' ? ' <small>admin</small>' : ''}</th>${
         col(x.t).map(v => `<td class="num">${v}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -4683,10 +4687,10 @@ function dessinerRapport(){
 
     <details class="rap-defs"><summary>Comment chaque chiffre est compté</summary>
       <p><b>Appelé</b> : au moins un appel compté, ou un statut posé (tous les setters ne cliquent pas sur « appel » avant de changer le statut).</p>
-      <p><b>Joint</b> : statut Follow Up, Monthly, Yearly, Ghosted ou Time Waster. Pas de réponse, Faux numéro et Nouveau ne sont pas joints.</p>
+      <p><b>Joint</b> : statut Follow Up, Mensuel Builder, Annuel Starter, Annuel Builder, Ghosted ou Time Waster. Pas de réponse, Faux numéro et Nouveau ne sont pas joints.</p>
       <p><b>Bloc 1</b> : le statut <i>actuel</i> des leads reçus ce jour-là. Il peut encore bouger les jours suivants.</p>
       <p><b>Bloc 2</b> : le <i>dernier</i> statut posé ce jour-là. Un lead passé en Pas de réponse puis en Follow Up le même jour compte en Follow Up. Un lead rappelé sans changer de statut garde le sien.</p>
-      <p><b>Closing</b> : Monthly ou Yearly posé ce jour-là. <b>Cash</b> : ce qui a été encaissé sur ces ventes.</p>
+      <p><b>Closing</b> : Mensuel Builder, Annuel Starter ou Annuel Builder posé ce jour-là. <b>Cash</b> : ce qui a été encaissé sur ces ventes.</p>
       <p><b>Leads pris</b> : leads attribués à un setter ce jour-là, qu'il les ait pris lui-même ou qu'un admin les lui ait donnés.</p>
       <p>Le parcours automatique n'est pas compté ici, comme dans le Dashboard.</p>
     </details>`;
@@ -4834,7 +4838,7 @@ async function chargerLegal(){
     // Ses leads signés, et ce qui est déjà enregistré pour eux.
     const [signes, ventes] = await Promise.all([
       api(`/rest/v1/leads?select=id,first_name,last_name,status,created_at,closed_at` +
-          `&status=in.(monthly,yearly)&setter_id=eq.${me.user_id}` +
+          `&status=in.(monthly,yearly,yearly_builder)&setter_id=eq.${me.user_id}` +
           `&order=closed_at.desc.nullslast,created_at.desc`),
       api(`/rest/v1/legalplace_ventes?select=lead_id,produits,total,commission&setter_id=eq.${me.user_id}`)
     ]);
@@ -6029,7 +6033,7 @@ async function chargerFactures(){
     ventes = await api(
       `/rest/v1/leads?select=id,first_name,last_name,status,closed_at,created_at,setter_id,` +
       `cash_collecte,commission,invoices(id,file_path,file_name,taille,created_at)` +
-      `&status=in.(monthly,yearly)${filtre}&equipe=eq.${equipeChoisie()}` +
+      `&status=in.(monthly,yearly,yearly_builder)${filtre}&equipe=eq.${equipeChoisie()}` +
       `&order=closed_at.desc.nullslast,created_at.desc`
     );
   } catch (err) {
@@ -6054,7 +6058,7 @@ function rendreFactures(){
     $('factResume').innerHTML = '';
     zone.innerHTML = `<div class="fact-vide">${admin && !qui
       ? "Aucune vente enregistrée pour le moment."
-      : "Aucune vente pour l'instant.<br>Dès qu'un lead passe en Monthly ou en Yearly, il apparaît ici et tu déposes sa facture."
+      : "Aucune vente pour l'instant.<br>Dès qu'un lead passe en vente, il apparaît ici et tu déposes sa facture."
     }</div>`;
     return;
   }
@@ -6347,8 +6351,9 @@ async function chargerStats(){
               <span class="donut-c"><b class="num">${nb(s.closed)}</b><span>ventes</span></span>
             </span>
             <div class="legende">
-              <span class="leg"><i style="background:var(--muted)"></i>Mensuel<b class="num">${nb(s.monthly)}</b></span>
-              <span class="leg"><i style="background:var(--navy)"></i>Annuel<b class="num">${nb(s.yearly)}</b></span>
+              <span class="leg"><i style="background:var(--muted)"></i>Mensuel Builder<b class="num">${nb(s.monthly)}</b></span>
+              <span class="leg"><i style="background:var(--navy)"></i>Annuel Starter<b class="num">${nb(s.yearly)}</b></span>
+              <span class="leg"><i style="background:var(--navy)"></i>Annuel Builder<b class="num">${nb(s.yearly_builder)}</b></span>
               <span class="leg leg--part">Cash moyen par vente<b class="num">$${
                 Number(s.closed) ? eur(Number(s.cash) / Number(s.closed)) : '0,00'}</b></span>
             </div>
@@ -6371,7 +6376,7 @@ async function chargerStats(){
           <div class="jauges">
             ${jauge('Connection rate', s.connection_rate, false, 'joints / appelés')}
             ${jauge('Closing rate', s.closing_rate, false, 'closés / joints')}
-            ${jauge('Yearly rate', s.yearly_rate, false, 'annuels / ventes')}
+            ${jauge('Part annuel', s.yearly_rate, false, 'annuels / ventes')}
             ${jauge('Time wasters', s.tw_rate, true, 'des leads joints')}
           </div>
         </div>
