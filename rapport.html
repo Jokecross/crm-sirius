@@ -132,6 +132,7 @@ function rapport(du, au){
 }
 function nb(n){ return Number(n || 0).toLocaleString('fr-FR'); }
 function usd(n){ return '$' + Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); }
+function usdCts(n){ return '$' + Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function taux(v, l){ return l ? Math.round(v / l * 100) + ' %' : '–'; }
 function echap(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
 function pastille(o){ return '<span class="pastille ' + o + '">' + NOMS[o] + '</span>'; }
@@ -176,7 +177,7 @@ function rendreDetail(){
       { nom: f[1], ventes: 0, cash: 0, commissions: 0 });
   });
   $('formules').innerHTML = '<table><thead><tr><th>Offre</th><th>Ventes</th><th>Cash</th><th>Setters</th></tr></thead><tbody>' + parFormule.map(function(f){
-    return '<tr><td>' + f.nom + '</td><td>' + nb(f.ventes) + '</td><td>' + usd(f.cash) + '</td><td>' + usd(f.commissions) + '</td></tr>';
+    return '<tr><td>' + f.nom + '</td><td>' + nb(f.ventes) + '</td><td>' + usd(f.cash) + '</td><td>' + usdCts(f.commissions) + '</td></tr>';
   }).join('') + '</tbody></table>';
 
   var jours = {};
