@@ -900,6 +900,13 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
   white-space:nowrap;
 }
 .panel-head .tag-via{margin-left:0;font-size:10.5px;color:var(--navy)}
+.tag-page{
+  margin-left:7px;border-radius:99px;padding:2px 8px;
+  background:#AE0000;color:#fff;
+  font-size:10.5px;font-weight:800;vertical-align:middle;white-space:nowrap;
+}
+.tag-page.jvj{background:#E3B64F;color:#0B0B0C}
+.panel-head .tag-page{margin-left:0}
 
 .tag-src{
   margin-left:7px;border-radius:99px;padding:2px 7px;
@@ -2425,7 +2432,7 @@ function bornesJour(decalage = 0){
   return [d.toISOString(), f.toISOString()];
 }
 
-const COLS = 'id,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,invoices(created_at),enr:lead_calls(count)';
+const COLS = 'id,offre,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,invoices(created_at),enr:lead_calls(count)';
 
 /* Un lead qu'on a eu au téléphone doit avoir sa note et son
    enregistrement : c'est ce qui permet de reprendre le dossier et de
@@ -2629,8 +2636,16 @@ const nomLead = (l) => [l.first_name, l.last_name].filter(Boolean).join(' ') || 
    (referrer) : pas de pastille. */
 const via = (l) => {
   const s = (l.source || '').trim();
-  if (!s || /[:/.]/.test(s)) return null;
+  if (!s || /[:/.]/.test(s) || ['anthony-sirius', 'jvj'].includes(s.toLowerCase())) return null;
   return s.charAt(0).toUpperCase() + s.slice(1);
+};
+/* La page de vente qui a amené le lead. Seuls les formulaires en ont une :
+   pas les leads Skool, ni ceux importés à la main. */
+const pagePastille = (l) => {
+  if (l.vivier !== 'formulaire' || l.equipe !== 'starter') return '';
+  return l.offre === 'jvj'
+    ? '<span class="tag-page jvj">Page JVJ</span>'
+    : '<span class="tag-page">Page Sirius</span>';
 };
 const heure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
 const jourCourt = (iso) => new Date(iso).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'2-digit'});
@@ -2661,7 +2676,7 @@ function pourLocalInput(iso){
 function listeFiltree(){
   let l = leads.slice();
   const q = $('search').value.trim().toLowerCase();
-  if (q) l = l.filter(x => [x.first_name, x.last_name, x.email, x.phone, x.source].join(' ').toLowerCase().includes(q));
+  if (q) l = l.filter(x => [x.first_name, x.last_name, x.email, x.phone, x.source, x.offre].join(' ').toLowerCase().includes(q));
   if (filtreStatut && vue !== 'relances') l = l.filter(x => x.status === filtreStatut);
 
   // Un agenda se lit dans l'ordre : le prochain appel en haut.
@@ -2733,7 +2748,7 @@ function afficher(){
     <article class="row ${retard ? 'retard' : ''} ${manque.length && controle ? 'incomplet' : ''} ${ouvert === l.id ? 'sel' : ''} ${curseur === i ? 'curseur' : ''} ${vusRecemment.has(l.id) ? 'neuf' : ''}" data-id="${l.id}" data-i="${i}">
       <span class="coche ${coche ? 'on' : ''}" data-coche="${l.id}">${coche ? '✓' : ''}</span>
       <div class="avatar">${echap(initiales(l))}</div>
-      <div class="c-lead"><b>${echap(nomLead(l))}</b>${
+      <div class="c-lead"><b>${echap(nomLead(l))}</b>${pagePastille(l)}${
         via(l) ? `<span class="tag-via">Via ${echap(via(l))}</span>` : ''}${
         vue === 'relances' && l.vivier === 'iclosed' ? '<span class="tag-src">iClosed</span>' : ''}${
         l.rdv_at && !l.rdv_annule_at && vue !== 'rdv'
@@ -3092,6 +3107,7 @@ function dessinerPanneau(l){
           : l.formulaire_at
             ? `Formulaire rempli le ${jourCourt(l.formulaire_at)} · ${echap(depuis(l.formulaire_at))}`
             : `Ajouté le ${jourCourt(l.created_at)}`}${
+          pagePastille(l) ? ` · ${pagePastille(l)}` : ''}${
           via(l) ? ` · <span class="tag-via">Via ${echap(via(l))}</span>` : ''}</span>
       </div>
       <button class="panel-close" data-fermer aria-label="Fermer">✕</button>
