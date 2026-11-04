@@ -2066,6 +2066,8 @@ const vuesDeMonEquipe = () => estPartenaire()
       : id === 'presence' ? me.role === 'admin'
       // Le rapport compte le travail de chacun : administrateurs seulement.
       : id === 'rapport' ? me.role === 'admin'
+      // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
+      : id === 'optin' ? me.role === 'admin' && definition(equipeChoisie()).vues.includes(id)
       : definition(equipeChoisie()).vues.includes(id));
 
 const COLONNES = [
