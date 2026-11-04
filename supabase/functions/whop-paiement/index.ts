@@ -21,7 +21,11 @@ const PLAN = Deno.env.get('WHOP_PLAN_ID') ?? ''
 
 // Les pages qui ont le droit d'appeler la fonction, et de servir d'adresse
 // de retour après une étape bancaire (3D Secure).
-const ORIGINES = ['https://lpsirius.vercel.app']
+const ORIGINES = [
+  'https://www.iamoneyclub-starter.com',
+  'https://iamoneyclub-starter.com',
+  'https://lpsirius.vercel.app',
+]
 
 function entetes(origine: string | null): Record<string, string> {
   return {
