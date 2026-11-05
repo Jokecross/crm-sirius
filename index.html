@@ -728,6 +728,11 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 /* Le changement d'équipe, toujours sous les yeux de qui en a deux. */
 .equipe-bascule{display:inline-flex;gap:2px;padding:3px;border-radius:99px;background:var(--tint);border:1px solid var(--line);flex:none}
 .equipe-bascule[hidden]{display:none}
+/* L'onglet Classement, en or : tout le monde doit le voir. */
+#navDesk .nav-item[data-vue="classement"],.tab-item[data-vue="classement"]{color:#E3B64F}
+#navDesk .nav-item[data-vue="classement"]:hover{color:#F0CB6E}
+#navDesk .nav-item[data-vue="classement"].on,.tab-item[data-vue="classement"].on{background:#E3B64F;color:#121212}
+#navDesk .nav-item[data-vue="classement"] .nav-lib{max-width:160px;opacity:1}
 .top-prix{padding:16px;margin-bottom:14px;border-radius:18px;background:var(--navy);color:var(--bg)}
 .top-prix h2{font-family:var(--f-title);font-size:18px;font-weight:800;color:inherit}
 .top-prix-liste{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
