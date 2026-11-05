@@ -1906,6 +1906,10 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
       <div id="rapportZone"></div>
     </section>
 
+    <section id="viewSources" hidden>
+      <div id="sourcesZone"></div>
+    </section>
+
     <section id="viewPartenaires" hidden>
       <div class="part-barre">
         <select id="partPeriode">
@@ -1990,6 +1994,8 @@ const VUES = [
    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   ['rapport',   'Rapport',       'Les chiffres exacts d\'une journée : leads reçus, travail fait, setter par setter',
    '<path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1z"/><path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2"/><path d="M8 17v-3M12 17v-6M16 17v-4"/>'],
+  ['sources',   'Sources',       'De chaque lien : visiteurs, formulaires, paiements, ventes',
+   '<path d="M4 4h16l-6 8v6l-4 2v-8z"/>'],
   ['presence',  'Présence',      'Qui est en ligne, inactif ou hors ligne',
    '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor" stroke="none"/>'],
 ];
@@ -2066,6 +2072,8 @@ const vuesDeMonEquipe = () => estPartenaire()
       : id === 'presence' ? me.role === 'admin'
       // Le rapport compte le travail de chacun : administrateurs seulement.
       : id === 'rapport' ? me.role === 'admin'
+      // Les chiffres de chaque lien, pour décider où mettre le budget.
+      : id === 'sources' ? me.role === 'admin' && equipeChoisie() === 'starter'
       // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
       : id === 'optin' ? me.role === 'admin' && definition(equipeChoisie()).vues.includes(id)
       : definition(equipeChoisie()).vues.includes(id));
@@ -2346,7 +2354,7 @@ function construireNav(){
     <button class="tab-item ${id === vue ? 'on' : ''}" data-vue="${id}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ico}</svg>
       ${id === 'jour' ? 'Leads' : id === 'rdv' ? 'RDV' : id === 'dashboard' ? 'Chiffres' : id === 'iclosed' ? 'iClosed'
-        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'optin' ? 'Opt-in' : lib}
+        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'sources' ? 'Sources' : id === 'optin' ? 'Opt-in' : lib}
       ${['relances','factures','iclosed'].includes(id) ? `<span class="tab-dot" id="dot-${id}" hidden></span>` : ''}
     </button>`).join('');
 
@@ -2396,7 +2404,7 @@ function allerA(id){
 
   // Deux vues ne montrent pas de leads : elles ont leur propre section, et
   // rien de la barre d'outils des listes ne les concerne.
-  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport'].includes(id);
+  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport', 'sources'].includes(id);
   $('viewList').hidden = !liste;
   $('viewDash').hidden = (id !== 'dashboard');
   $('viewFactures').hidden = (id !== 'factures');
@@ -2405,6 +2413,7 @@ function allerA(id){
   $('viewDispos').hidden = (id !== 'dispos');
   $('viewPresence').hidden = (id !== 'presence');
   $('viewRapport').hidden = (id !== 'rapport');
+  $('viewSources').hidden = (id !== 'sources');
   $('viewLegal').hidden = (id !== 'legalplace');
   // L'import n'a de sens que dans le vivier iClosed, et pour qui répartit.
   $('importIcl').hidden = !(id === 'iclosed' && me.role === 'admin');
@@ -2428,6 +2437,7 @@ function allerA(id){
   else if (id === 'dispos') chargerDispos();
   else if (id === 'presence') chargerPresence();
   else if (id === 'rapport') chargerRapport();
+  else if (id === 'sources') chargerSources();
   else if (id === 'legalplace') chargerLegal();
   else charger();
 }
@@ -4719,6 +4729,96 @@ function dessinerRapport(){
       <p>Le parcours automatique n'est pas compté ici, comme dans le Dashboard.</p>
     </details>`;
 }
+
+/* ============================================================
+   SOURCES
+   De chaque lien de la page Sirius, du visiteur à la vente. Tout vient de
+   stats_sources : jours en heure de Paris, même calcul de la source et
+   même définition d'une vente que le rapport des pages.
+   ============================================================ */
+const jourParis = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+let srcDu = '', srcAu = '', srcPlage = 'auj';
+const euros = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+function plageSources(p){
+  const auj = jourParis();
+  srcPlage = p;
+  if (p === 'auj')  { srcDu = auj; srcAu = auj; }
+  if (p === 'hier') { srcDu = plusJours(auj, -1); srcAu = srcDu; }
+  if (p === '7j')   { srcDu = plusJours(auj, -6); srcAu = auj; }
+  if (p === '30j')  { srcDu = plusJours(auj, -29); srcAu = auj; }
+}
+
+function barreSources(){
+  const auj = jourParis();
+  const b = (p, lib) => `<button type="button" data-src-plage="${p}" class="${srcPlage === p ? 'on' : ''}">${lib}</button>`;
+  return `<div class="dispo-outils rap-outils">
+      <div class="dispo-bascule" role="group" aria-label="Période">
+        ${b('auj', "Aujourd'hui")}${b('hier', 'Hier')}${b('7j', '7 jours')}${b('30j', '30 jours')}
+      </div>
+      <input type="date" id="srcDu" value="${srcDu}" max="${auj}" aria-label="Du">
+      <input type="date" id="srcAu" value="${srcAu}" max="${auj}" aria-label="Au">
+      <button type="button" class="auto-btn" data-src-actualiser>Actualiser</button>
+    </div>`;
+}
+
+async function chargerSources(){
+  const zone = $('sourcesZone');
+  if (!srcDu) plageSources('auj');
+  zone.innerHTML = barreSources() + '<div class="skel"></div>'.repeat(3);
+  let s;
+  try {
+    s = await api('/rest/v1/rpc/stats_sources', {
+      method: 'POST',
+      body: JSON.stringify({ p_du: srcDu, p_au: srcAu, p_offre: 'sirius' }),
+    });
+  } catch (err) {
+    zone.innerHTML = barreSources() + `<div class="fact-vide">Les sources n'ont pas pu être chargées.<br>${echap(erreurBase(err).slice(0, 200))}</div>`;
+    return;
+  }
+  const t = s.total;
+  const ligne = (l, nom) => `<td class="num">${l.visiteurs}</td><td class="num">${l.formulaires}</td>
+      <td class="num">${pct(l.formulaires, l.visiteurs)}</td><td class="num">${l.payes}</td>
+      <td class="num">${pct(l.payes, l.formulaires)}</td><td class="num">${euros(l.encaisse)}</td>
+      <td class="num">${l.appeles}</td><td class="num">${l.ventes}</td>
+      <td class="num">${pct(l.ventes, l.payes)}</td><td class="num">${dollars(l.cash)}</td>`;
+  zone.innerHTML = barreSources() + `
+    <div class="rap-cases" style="margin-top:14px">
+      ${rapCase('Visiteurs', t.visiteurs)}
+      ${rapCase('Formulaires', t.formulaires, pct(t.formulaires, t.visiteurs) + ' des visiteurs')}
+      ${rapCase('Payés', t.payes, pct(t.payes, t.formulaires) + ' des formulaires')}
+      ${rapCase('Encaissé', euros(t.encaisse), 'Whop, avant remboursements', 'cash')}
+      ${rapCase('Ventes', t.ventes, pct(t.ventes, t.payes) + ' des payés')}
+      ${rapCase('Cash ventes', dollars(t.cash), '', 'cash')}
+    </div>
+    ${s.lignes.length ? `<div class="dispo-planning-zone" style="margin-top:14px"><table class="rap-table">
+      <thead><tr><th>Source</th><th>Visiteurs</th><th>Formulaires</th><th>Visite → form</th><th>Payés</th><th>Form → payé</th><th>Encaissé</th><th>Appelés</th><th>Ventes</th><th>Payé → vente</th><th>Cash</th></tr></thead>
+      <tbody>${s.lignes.map(l => `<tr><th>${echap(l.origine)}</th>${ligne(l)}</tr>`).join('')}</tbody>
+      <tfoot><tr><th>Total</th>${ligne(t)}</tr></tfoot>
+    </table></div>` : `<div class="fact-vide" style="margin-top:14px">Rien sur cette période.</div>`}
+    <details class="rap-defs"><summary>Comment c'est compté</summary>
+      <p><b>Source :</b> le lien par lequel la personne est arrivée (/tiktok, /facebook-ads…), gardé 30 jours dans son navigateur. Sans lien : direct.</p>
+      <p><b>Visiteurs :</b> personnes différentes sur la période, comptées par la page${s.visites_depuis ? ` depuis le ${lireJour(s.visites_depuis).toLocaleDateString('fr-FR')}` : ''}. Les bloqueurs et les robots peuvent faire varier le chiffre, Vercel Analytics sert de contrôle.</p>
+      <p><b>Formulaires :</b> formulaires remplis sur la période, payés ou non. <b>Appelés :</b> ces mêmes leads, déjà appelés.</p>
+      <p><b>Payés et encaissé :</b> paiements Whop reçus sur la période, remboursements non déduits.</p>
+      <p><b>Ventes et cash :</b> ventes conclues sur la période, même si le lead est arrivé avant.</p>
+      <p>Les jours sont en heure de Paris. Le paiement existe depuis le 04/11/2026 : avant, la colonne Payés est vide.</p>
+    </details>`;
+}
+
+document.addEventListener('click', (e) => {
+  if (vue !== 'sources') return;
+  const p = e.target.closest('[data-src-plage]');
+  if (p){ plageSources(p.dataset.srcPlage); chargerSources(); return; }
+  if (e.target.closest('[data-src-actualiser]')) chargerSources();
+});
+document.addEventListener('change', (e) => {
+  if (vue !== 'sources' || !['srcDu', 'srcAu'].includes(e.target.id) || !e.target.value) return;
+  if (e.target.id === 'srcDu') srcDu = e.target.value; else srcAu = e.target.value;
+  if (srcAu < srcDu) { if (e.target.id === 'srcDu') srcAu = srcDu; else srcDu = srcAu; }
+  srcPlage = '';
+  chargerSources();
+});
 
 document.addEventListener('click', (e) => {
   if (vue !== 'rapport') return;
