@@ -725,6 +725,27 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
   display:flex;flex-direction:column;gap:5px;
 }
 .equipe-choix[hidden]{display:none}
+/* Le changement d'équipe, toujours sous les yeux de qui en a deux. */
+.equipe-bascule{display:inline-flex;gap:2px;padding:3px;border-radius:99px;background:var(--tint);border:1px solid var(--line);flex:none}
+.equipe-bascule[hidden]{display:none}
+.top-prix{padding:16px;margin-bottom:14px;border-radius:18px;background:var(--navy);color:var(--bg)}
+.top-prix h2{font-family:var(--f-title);font-size:18px;font-weight:800;color:inherit}
+.top-prix-liste{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.top-prix-case{padding:10px 12px;border-radius:12px;background:rgba(127,127,127,.2)}
+.top-prix-case span{display:block;font-size:12.5px;font-weight:700}
+.top-prix-case b{display:block;margin-top:2px;font-family:var(--f-title);font-size:22px;font-weight:800}
+.top-prix p{margin-top:9px;font-size:12.5px;opacity:.75}
+.top-ligne{display:grid;grid-template-columns:44px minmax(0,1fr) repeat(3,minmax(66px,110px));align-items:center;gap:8px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:8px}
+.top-ligne.moi{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy)}
+.top-tete{background:none;border:0;padding:4px 14px;margin-top:14px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.top-rang{font-family:var(--f-title);font-size:19px;font-weight:800;color:var(--navy);text-align:center}
+.top-nom{font-weight:700;color:var(--navy);overflow-wrap:anywhere}
+.top-nom small{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+.top-val{text-align:right;font-weight:700;color:var(--navy)}
+.top-val.cash{color:var(--green);font-weight:800}
+@media (max-width:560px){.top-ligne{grid-template-columns:36px minmax(0,1fr) 60px 42px 50px;gap:5px;padding:10px}.top-val{font-size:13px}}
+.equipe-bascule button{border:0;background:none;cursor:pointer;padding:6px 12px;border-radius:99px;font:700 12.5px var(--f-body);color:var(--muted)}
+.equipe-bascule button.on{background:var(--navy);color:var(--bg)}
 .equipe-choix label{
   font-size:10px;font-weight:800;color:var(--muted);
   letter-spacing:.11em;text-transform:uppercase;
@@ -1692,6 +1713,8 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 
     <nav class="dock" id="navDesk"></nav>
 
+    <div class="equipe-bascule" data-equipe-bascule hidden></div>
+
     <div class="compte">
       <button class="compte-btn" id="compteBtn" type="button" aria-expanded="false" aria-haspopup="true">
         <span class="me-av" id="meAv">—</span>
@@ -1732,6 +1755,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
   <div class="topbar">
     <span class="logo logo--sm"><svg viewBox="4 4 92 92" width="28" height="28" aria-hidden="true"><defs><mask id="coupure-mobile"><rect width="100" height="100" fill="#fff"/><circle cx="76.9" cy="23.1" r="16" fill="#000"/></mask></defs><circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="16" mask="url(#coupure-mobile)"/><circle cx="76.9" cy="23.1" r="13" fill="#D2401C"/></svg></span>
     <b id="mobTitle">Leads du jour</b>
+    <div class="equipe-bascule" data-equipe-bascule hidden></div>
     <button class="logout" id="logoutBtn2" aria-label="Se déconnecter">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
     </button>
@@ -1910,6 +1934,10 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
       <div id="sourcesZone"></div>
     </section>
 
+    <section id="viewClassement" hidden>
+      <div id="classementZone"></div>
+    </section>
+
     <section id="viewPartenaires" hidden>
       <div class="part-barre">
         <select id="partPeriode">
@@ -1986,6 +2014,8 @@ const VUES = [
    '<path d="M3 7h18v13a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M2 3h20v4H2zM10 12h4"/>'],
   ['dashboard', 'Dashboard',     'Tes chiffres',
    '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
+  ['classement', 'Classement',   'Le cash d\'abord, puis les closings, puis le % de closing',
+   '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4v2a3 3 0 003 3M17 6h3v2a3 3 0 01-3 3"/>'],
   ['factures',  'Factures',      'Une facture de paiement par vente conclue',
    '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/>'],
   ['auto',      'Automatique',   'Le parcours sans appel : vérifie la facture Base44, puis ouvre l\'accès',
@@ -2036,11 +2066,11 @@ const PARTENAIRES = {};
 
    Ajouter une équipe tient en une ligne ici, plus une valeur dans la
    contrainte de la base. */
-const SANS_FORMULAIRE = ['pipeline', 'relances', 'archive', 'dashboard', 'factures'];
+const SANS_FORMULAIRE = ['pipeline', 'relances', 'archive', 'dashboard', 'classement', 'factures'];
 const EQUIPES = {
   starter: {
     nom: 'Base44',
-    vues: ['jour', 'optin', 'pipeline', 'relances', 'archive', 'dashboard', 'factures'],
+    vues: ['jour', 'optin', 'pipeline', 'relances', 'archive', 'dashboard', 'classement', 'factures'],
     saisie: false,
   },
   skool: { nom: 'Skool', vues: ['rdv', ...SANS_FORMULAIRE], saisie: true, rdv: true },
@@ -2244,6 +2274,7 @@ async function demarrer(){
   $('equipeChoix').hidden = !aLeChoix() || estPartenaire();
   // On ouvre sur l'équipe principale, celle où la personne travaille le plus.
   $('equipe').value = mesEquipes().includes(me.equipe) ? me.equipe : mesEquipes()[0];
+  dessinerBascule();
 
   construireNav();
   construireFiltres();
@@ -2328,6 +2359,23 @@ function mesEquipes(){
 }
 const aLeChoix = () => mesEquipes().length > 1;
 
+/* Le même choix que le menu du compte, posé en haut de l'écran. */
+function dessinerBascule(){
+  const actuelle = $('equipe').value;
+  document.querySelectorAll('[data-equipe-bascule]').forEach((zone) => {
+    zone.hidden = !aLeChoix() || estPartenaire();
+    zone.innerHTML = mesEquipes().map(cle =>
+      `<button type="button" data-bascule-equipe="${cle}" class="${cle === actuelle ? 'on' : ''}">${echap(EQUIPES[cle].nom)}</button>`).join('');
+  });
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-bascule-equipe]');
+  if (!b || b.dataset.basculeEquipe === $('equipe').value) return;
+  $('equipe').value = b.dataset.basculeEquipe;
+  $('equipe').dispatchEvent(new Event('change', { bubbles: true }));
+});
+document.addEventListener('change', (e) => { if (e.target.id === 'equipe') dessinerBascule(); });
+
 /* Quelle équipe on regarde. Qui n'en a qu'une n'a pas de menu — les
    policies le bornent de toute façon. Qui en a plusieurs choisit, comme
    un administrateur. */
@@ -2354,7 +2402,7 @@ function construireNav(){
     <button class="tab-item ${id === vue ? 'on' : ''}" data-vue="${id}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ico}</svg>
       ${id === 'jour' ? 'Leads' : id === 'rdv' ? 'RDV' : id === 'dashboard' ? 'Chiffres' : id === 'iclosed' ? 'iClosed'
-        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'sources' ? 'Sources' : id === 'optin' ? 'Opt-in' : lib}
+        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'sources' ? 'Sources' : id === 'classement' ? 'Top' : id === 'optin' ? 'Opt-in' : lib}
       ${['relances','factures','iclosed'].includes(id) ? `<span class="tab-dot" id="dot-${id}" hidden></span>` : ''}
     </button>`).join('');
 
@@ -2404,7 +2452,7 @@ function allerA(id){
 
   // Deux vues ne montrent pas de leads : elles ont leur propre section, et
   // rien de la barre d'outils des listes ne les concerne.
-  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport', 'sources'].includes(id);
+  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport', 'sources', 'classement'].includes(id);
   $('viewList').hidden = !liste;
   $('viewDash').hidden = (id !== 'dashboard');
   $('viewFactures').hidden = (id !== 'factures');
@@ -2414,6 +2462,7 @@ function allerA(id){
   $('viewPresence').hidden = (id !== 'presence');
   $('viewRapport').hidden = (id !== 'rapport');
   $('viewSources').hidden = (id !== 'sources');
+  $('viewClassement').hidden = (id !== 'classement');
   $('viewLegal').hidden = (id !== 'legalplace');
   // L'import n'a de sens que dans le vivier iClosed, et pour qui répartit.
   $('importIcl').hidden = !(id === 'iclosed' && me.role === 'admin');
@@ -2438,6 +2487,7 @@ function allerA(id){
   else if (id === 'presence') chargerPresence();
   else if (id === 'rapport') chargerRapport();
   else if (id === 'sources') chargerSources();
+  else if (id === 'classement') chargerClassement();
   else if (id === 'legalplace') chargerLegal();
   else charger();
 }
@@ -4806,6 +4856,77 @@ async function chargerSources(){
     </details>`;
 }
 
+/* ============================================================
+   CLASSEMENT
+   Toute l'équipe voit le même classement : le cash d'abord, puis les
+   closings, puis le % de closing. Il se recharge à chaque changement sur
+   un lead (le direct), et toutes les 30 secondes au cas où il tomberait.
+   ============================================================ */
+let topPlage = 'mois', topMinuteur = null;
+const RECOMPENSES = [['🥇', '1er', 300], ['🥈', '2e', 150], ['🥉', '3e', 75]];
+
+function bornesClassement(){
+  const auj = jourParis();
+  if (topPlage === 'auj') return [auj, auj];
+  if (topPlage === 'semaine'){
+    const jour = lireJour(auj).getDay() || 7;   // lundi = 1, dimanche = 7
+    return [plusJours(auj, 1 - jour), auj];
+  }
+  if (topPlage === 'mois') return [auj.slice(0, 8) + '01', auj];
+  return [null, null];
+}
+
+async function chargerClassement(discret){
+  const zone = $('classementZone');
+  const b = (p, lib) => `<button type="button" data-top-plage="${p}" class="${topPlage === p ? 'on' : ''}">${lib}</button>`;
+  // Les récompenses ne concernent que l'équipe Base44.
+  const prix = equipeChoisie() !== 'starter' ? '' : `<section class="top-prix" aria-label="Récompenses du mois">
+      <h2>Récompenses du mois</h2>
+      <div class="top-prix-liste">
+        ${RECOMPENSES.map(([m, rang, somme]) => `<div class="top-prix-case"><span>${m} ${rang}</span><b class="num">${somme} $</b></div>`).join('')}
+      </div>
+      <p>En plus des commissions, pour le classement à la fin du mois.</p>
+    </section>`;
+  const barre = prix + `<div class="dispo-outils rap-outils"><div class="dispo-bascule" role="group" aria-label="Période">
+      ${b('auj', "Aujourd'hui")}${b('semaine', 'Cette semaine')}${b('mois', 'Ce mois')}${b('tout', 'Depuis le début')}
+    </div></div>`;
+  if (!discret) zone.innerHTML = barre + '<div class="skel"></div>'.repeat(4);
+  clearTimeout(topMinuteur);
+  topMinuteur = setTimeout(() => { if (vue === 'classement' && !document.hidden) chargerClassement(true); }, 30000);
+  const [du, au] = bornesClassement();
+  let s;
+  try {
+    s = await api('/rest/v1/rpc/classement_setters', {
+      method: 'POST', body: JSON.stringify({ p_du: du, p_au: au, p_equipe: equipeChoisie() }),
+    });
+  } catch (err) {
+    if (!discret) zone.innerHTML = barre + `<div class="fact-vide">Le classement n'a pas pu être chargé.<br>${echap(erreurBase(err).slice(0, 200))}</div>`;
+    return;
+  }
+  if (vue !== 'classement') return;
+  const medaille = (l) => l.cash > 0 ? ({ 1: '🥇', 2: '🥈', 3: '🥉' }[l.rang] || l.rang) : l.rang;
+  zone.innerHTML = barre + (s.lignes.length ? `
+    <div class="top-ligne top-tete"><span></span><span>Setter</span><span class="top-val">Cash</span><span class="top-val">Closings</span><span class="top-val">%</span></div>
+    ${s.lignes.map(l => `<div class="top-ligne ${l.user_id === me.user_id ? 'moi' : ''}">
+        <span class="top-rang">${medaille(l)}</span>
+        <span class="top-nom">${echap(l.nom || 'Sans nom')}<small>${l.joints} joint${l.joints > 1 ? 's' : ''}</small></span>
+        <span class="top-val cash num">${dollars(l.cash)}</span>
+        <span class="top-val num">${l.closings}</span>
+        <span class="top-val num">${l.joints ? Math.round(l.taux) + ' %' : '—'}</span>
+      </div>`).join('')}` : `<div class="fact-vide" style="margin-top:14px">Personne dans cette équipe pour l'instant.</div>`) + `
+    <details class="rap-defs"><summary>Comment c'est classé</summary>
+      <p>1. Le <b>cash collecté</b> sur la période. 2. À égalité, le nombre de <b>closings</b>. 3. Encore à égalité, le <b>% de closing</b>.</p>
+      <p>Un très bon pourcentage sur deux ventes ne passe donc pas devant quelqu'un qui a rapporté plus.</p>
+      <p><b>% de closing :</b> closings divisés par les joints reçus ou closés sur la période. Les jours sont en heure de Paris.</p>
+    </details>`;
+}
+
+document.addEventListener('click', (e) => {
+  if (vue !== 'classement') return;
+  const p = e.target.closest('[data-top-plage]');
+  if (p){ topPlage = p.dataset.topPlage; chargerClassement(); }
+});
+
 document.addEventListener('click', (e) => {
   if (vue !== 'sources') return;
   const p = e.target.closest('[data-src-plage]');
@@ -5346,6 +5467,7 @@ function recevoirChangement(message){
     if (vue === 'dashboard') chargerStats();
     else if (vue === 'factures') chargerFactures();
     else if (vue === 'auto') chargerAuto();
+    else if (vue === 'classement') chargerClassement(true);
     else charger(true);
   }, 350);
 }
