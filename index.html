@@ -742,6 +742,13 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 .top-prix p{margin-top:9px;font-size:12.5px;opacity:.75}
 .top-ligne{display:grid;grid-template-columns:44px minmax(0,1fr) repeat(3,minmax(66px,110px));align-items:center;gap:8px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-top:8px}
 .top-ligne.moi{border-color:var(--navy);box-shadow:0 0 0 1px var(--navy)}
+.top-ligne.podium-1{background:linear-gradient(90deg,rgba(227,182,79,.3),rgba(227,182,79,.08));border-color:#E3B64F}
+.top-ligne.podium-2{background:linear-gradient(90deg,rgba(168,174,184,.32),rgba(168,174,184,.08));border-color:#A8AEB8}
+.top-ligne.podium-3{background:linear-gradient(90deg,rgba(194,124,72,.28),rgba(194,124,72,.07));border-color:#C27C48}
+.top-gain{display:inline-block;margin-left:7px;padding:1px 8px;border-radius:99px;font-size:12px;font-style:normal;font-weight:800;vertical-align:1px;color:#121212}
+.podium-1 .top-gain{background:#E3B64F}
+.podium-2 .top-gain{background:#C3C8D0}
+.podium-3 .top-gain{background:#D89A6A}
 .top-tete{background:none;border:0;padding:4px 14px;margin-top:14px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .top-rang{font-family:var(--f-title);font-size:19px;font-weight:800;color:var(--navy);text-align:center}
 .top-nom{font-weight:700;color:var(--navy);overflow-wrap:anywhere}
@@ -4910,11 +4917,14 @@ async function chargerClassement(discret){
   }
   if (vue !== 'classement') return;
   const medaille = (l) => l.cash > 0 ? ({ 1: '🥇', 2: '🥈', 3: '🥉' }[l.rang] || l.rang) : l.rang;
+  // La récompense se joue sur le mois, et seulement chez Base44.
+  const gain = (l) => topPlage === 'mois' && equipeChoisie() === 'starter' && l.cash > 0 && RECOMPENSES[l.rang - 1]
+    ? `<em class="top-gain">+${RECOMPENSES[l.rang - 1][2]} $</em>` : '';
   zone.innerHTML = barre + (s.lignes.length ? `
     <div class="top-ligne top-tete"><span></span><span>Setter</span><span class="top-val">Cash</span><span class="top-val">Closings</span><span class="top-val">%</span></div>
-    ${s.lignes.map(l => `<div class="top-ligne ${l.user_id === me.user_id ? 'moi' : ''}">
+    ${s.lignes.map(l => `<div class="top-ligne ${l.user_id === me.user_id ? 'moi' : ''} ${l.cash > 0 && l.rang <= 3 ? 'podium-' + l.rang : ''}">
         <span class="top-rang">${medaille(l)}</span>
-        <span class="top-nom">${echap(l.nom || 'Sans nom')}<small>${l.joints} joint${l.joints > 1 ? 's' : ''}</small></span>
+        <span class="top-nom">${echap(l.nom || 'Sans nom')}${gain(l)}<small>${l.joints} joint${l.joints > 1 ? 's' : ''}</small></span>
         <span class="top-val cash num">${dollars(l.cash)}</span>
         <span class="top-val num">${l.closings}</span>
         <span class="top-val num">${l.joints ? Math.round(l.taux) + ' %' : '—'}</span>
