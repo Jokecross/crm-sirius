@@ -733,6 +733,25 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 #navDesk .nav-item[data-vue="classement"]:hover{color:#F0CB6E}
 #navDesk .nav-item[data-vue="classement"].on,.tab-item[data-vue="classement"].on{background:#E3B64F;color:#121212}
 #navDesk .nav-item[data-vue="classement"] .nav-lib{max-width:160px;opacity:1}
+/* Un administrateur a beaucoup d'onglets : l'en-tête se resserre avant de déborder. */
+@media (min-width:960px) and (max-width:1420px){
+  .entete{gap:10px;padding-left:18px;padding-right:18px}
+  .dock{gap:0;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .dock .nav-item{padding:0 9px;flex:none}
+  .entete .marque i,.compte-btn b{display:none}
+}
+.mes-taux{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.mes-taux[hidden]{display:none}
+.taux-carte{padding:16px 18px;border-radius:18px;background:var(--card);border:1.5px solid var(--line)}
+.taux-carte span{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.taux-carte b{display:block;margin-top:4px;font-family:var(--f-title);font-size:44px;font-weight:800;line-height:1.05;color:var(--navy)}
+.taux-carte small{display:block;margin-top:3px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.taux-carte p{margin-top:8px;font-size:13.5px;font-weight:600;line-height:1.4;color:var(--text)}
+.taux-carte.ko{border-color:var(--red);background:rgba(200,50,40,.1)}
+.taux-carte.ko b,.taux-carte.ko p{color:var(--red)}
+.taux-carte.ok{border-color:var(--green);background:rgba(50,130,80,.1)}
+.taux-carte.ok b{color:var(--green)}
+@media (max-width:560px){.mes-taux{gap:8px}.taux-carte{padding:12px}.taux-carte b{font-size:32px}.taux-carte p{font-size:12.5px}}
 .top-prix{padding:16px;margin-bottom:14px;border-radius:18px;background:var(--navy);color:var(--bg)}
 .top-prix h2{font-family:var(--f-title);font-size:18px;font-weight:800;color:inherit}
 .top-prix-liste{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
@@ -1848,6 +1867,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 
     <!-- ---- Listes ---- -->
     <section id="viewList">
+      <div class="mes-taux" id="mesTaux" hidden></div>
       <div class="toolbar">
         <div class="search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -2096,11 +2116,13 @@ const RDV_URL = 'https://page-reservation.vercel.app';
 const definition = (eq) => EQUIPES[eq] || EQUIPES[DEFAUT_EQUIPE];
 
 const estPartenaire = () => me.role === 'partenaire';
+/* Un compte en vue réduite (staff.vues) ne garde que ses onglets. */
+const vueReduite = () => !!(me && me.vues && me.vues.length);
 const vuesDeMonEquipe = () => estPartenaire()
   // Une personne de l'agence n'a qu'un onglet : ce que son lien rapporte.
   // La base dit la même chose — elle ne lit aucun lead.
   ? VUES.filter(([id]) => id === 'partenaires')
-  : VUES.filter(([id]) =>
+  : VUES.filter(([id]) => (!vueReduite() || me.vues.includes(id)) && (
       // Les partenaires, c'est de l'argent qui sort :
       // ça ne regarde que les administrateurs.
       id === 'partenaires' ? me.role === 'admin'
@@ -2118,7 +2140,7 @@ const vuesDeMonEquipe = () => estPartenaire()
       : id === 'sources' ? me.role === 'admin' && equipeChoisie() === 'starter'
       // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
       : id === 'optin' ? me.role === 'admin' && definition(equipeChoisie()).vues.includes(id)
-      : definition(equipeChoisie()).vues.includes(id));
+      : definition(equipeChoisie()).vues.includes(id)));
 
 const COLONNES = [
   ['',            null,           ''],
@@ -2553,8 +2575,56 @@ function compterEnregistrement(leadId, delta){
   afficher();
 }
 
+/* ============================================================
+   MES TAUX
+   Le setter voit ses deux taux du mois en haut de sa liste. Même calcul que
+   le Dashboard (crm_stats) : closing = closés / joints, connection rate =
+   joints / appelés. Sous le seuil de l'équipe, la carte passe au rouge ; sous
+   le volume minimum, le taux reste affiché sans jugement.
+   ============================================================ */
+const SEUILS_TAUX = { closing: 55, connexion: 65 };
+const MINIMUM_TAUX = 10;
+
+function debutMoisParis(){
+  const jour = jourParis().slice(0, 8) + '01';
+  const decalage = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'longOffset' })
+    .formatToParts(new Date(jour + 'T12:00:00Z')).find(p => p.type === 'timeZoneName').value.replace('GMT', '');
+  return new Date(`${jour}T00:00:00${decalage || '+00:00'}`);
+}
+
+function carteTaux(titre, taux, seuil, base, unite, nom){
+  const assez = base >= MINIMUM_TAUX;
+  const etat = !assez ? 'attente' : taux < seuil ? 'ko' : 'ok';
+  const texte = !assez
+    ? `Pas encore assez d'appels pour juger : ${base} ${base > 1 ? unite : unite.replace(/s$/, '')} sur ${MINIMUM_TAUX}.`
+    : etat === 'ko' ? `Augmente ton ${nom} car tu es sous le seuil que l'équipe demande.` : 'Tu es au-dessus du seuil.';
+  return `<div class="taux-carte ${etat}">
+      <span>${titre}</span>
+      <b class="num">${base ? Math.round(taux) + ' %' : '—'}</b>
+      <small>Seuil de l'équipe : ${seuil} %</small>
+      <p>${texte}</p>
+    </div>`;
+}
+
+async function chargerMesTaux(){
+  const zone = $('mesTaux');
+  if (!me || me.role !== 'setter' || !['jour', 'rdv'].includes(vue)){ zone.hidden = true; return; }
+  try {
+    const s = await api('/rest/v1/rpc/crm_stats', {
+      method: 'POST',
+      body: JSON.stringify({ p_debut: debutMoisParis().toISOString(), p_fin: null, p_setter: me.user_id, p_vivier: null, p_equipe: equipeChoisie() }),
+    });
+    if (!['jour', 'rdv'].includes(vue)) return;
+    const appeles = s.joints + (s.sans_reponse || 0);
+    zone.innerHTML = carteTaux('Mon taux de closing', s.closing_rate, SEUILS_TAUX.closing, s.joints, 'joints', 'taux de closing')
+      + carteTaux('Mon connection rate', s.connection_rate, SEUILS_TAUX.connexion, s.tentes ?? appeles, 'appelés', 'connection rate');
+    zone.hidden = false;
+  } catch (e) { zone.hidden = true; }
+}
+
 async function charger(silencieux){
   $('appError').hidden = true;
+  chargerMesTaux();
   // Un rafraîchissement déclenché par le temps réel ne doit pas faire
   // clignoter la liste : personne n'a demandé à recharger.
   if (!silencieux){ chargement = true; afficher(); }
@@ -5459,8 +5529,7 @@ function recevoirChangement(message){
   if (message.eventType === 'INSERT' && n && !n.setter_id
       && n.vivier !== 'auto' && n.vivier !== 'optin'){
     const qui = nomLead(n);
-    toast('Nouveau lead' + (qui ? ' : ' + qui : ''));
-    ding();
+    if (!vueReduite()){ toast('Nouveau lead' + (qui ? ' : ' + qui : '')); ding(); }
   }
   // Le paiement des 9,99 € fait passer un opt-in dans les Leads du jour : c'est
   // une mise à jour, pas une création, et c'est là qu'il faut sonner. Une
@@ -5470,8 +5539,7 @@ function recevoirChangement(message){
       && !sonnesPaye.has(n.id)){
     sonnesPaye.add(n.id);
     const qui = nomLead(n);
-    toast('Nouveau lead payé' + (qui ? ' : ' + qui : ''));
-    ding();
+    if (!vueReduite()){ toast('Nouveau lead payé' + (qui ? ' : ' + qui : '')); ding(); }
   }
 
   // Plusieurs annonces arrivent souvent d'un coup — un import, une salve
