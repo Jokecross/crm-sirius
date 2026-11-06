@@ -768,6 +768,12 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
 .podium-1 .top-gain{background:#E3B64F}
 .podium-2 .top-gain{background:#C3C8D0}
 .podium-3 .top-gain{background:#D89A6A}
+.top-ligne.admin{grid-template-columns:44px minmax(0,1fr) repeat(4,minmax(66px,104px))}
+.top-court{display:none}
+@media (max-width:560px){.top-tete.admin{font-size:9px;letter-spacing:0}.top-tete.admin .top-long{display:none}.top-tete.admin .top-court{display:inline}}
+.top-val.sous-seuil{color:var(--red);font-weight:800}
+.top-val.sur-seuil{color:var(--green);font-weight:800}
+@media (max-width:560px){.top-ligne.admin{grid-template-columns:30px minmax(0,1fr) 54px 34px 42px 46px;gap:4px;padding:10px 8px}}
 .top-tete{background:none;border:0;padding:4px 14px;margin-top:14px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .top-rang{font-family:var(--f-title);font-size:19px;font-weight:800;color:var(--navy);text-align:center}
 .top-nom{font-weight:700;color:var(--navy);overflow-wrap:anywhere}
@@ -4987,22 +4993,28 @@ async function chargerClassement(discret){
   }
   if (vue !== 'classement') return;
   const medaille = (l) => l.cash > 0 ? ({ 1: '🥇', 2: '🥈', 3: '🥉' }[l.rang] || l.rang) : l.rang;
+  // Les administrateurs voient en plus le connection rate, et qui est sous
+  // les seuils. Sous le volume minimum, le taux reste neutre.
+  const admin = me.role === 'admin' && !vueReduite();
+  const teinte = (taux, base, seuil) => base >= MINIMUM_TAUX ? (taux < seuil ? 'sous-seuil' : 'sur-seuil') : '';
   // La récompense se joue sur le mois, et seulement chez Base44.
   const gain = (l) => topPlage === 'mois' && equipeChoisie() === 'starter' && l.cash > 0 && RECOMPENSES[l.rang - 1]
     ? `<em class="top-gain">+${RECOMPENSES[l.rang - 1][2]} $</em>` : '';
   zone.innerHTML = barre + (s.lignes.length ? `
-    <div class="top-ligne top-tete"><span></span><span>Setter</span><span class="top-val">Cash</span><span class="top-val">Closings</span><span class="top-val">%</span></div>
-    ${s.lignes.map(l => `<div class="top-ligne ${l.user_id === me.user_id ? 'moi' : ''} ${l.cash > 0 && l.rang <= 3 ? 'podium-' + l.rang : ''}">
+    <div class="top-ligne top-tete ${admin ? 'admin' : ''}"><span></span><span>Setter</span><span class="top-val">Cash</span><span class="top-val"><span class="top-long">Closings</span><span class="top-court">Ventes</span></span><span class="top-val">%</span>${admin ? '<span class="top-val"><span class="top-long">Connexion</span><span class="top-court">Conn.</span></span>' : ''}</div>
+    ${s.lignes.map(l => `<div class="top-ligne ${admin ? 'admin' : ''} ${l.user_id === me.user_id ? 'moi' : ''} ${l.cash > 0 && l.rang <= 3 ? 'podium-' + l.rang : ''}">
         <span class="top-rang">${medaille(l)}</span>
         <span class="top-nom">${echap(l.nom || 'Sans nom')}${gain(l)}<small>${l.joints} joint${l.joints > 1 ? 's' : ''}</small></span>
         <span class="top-val cash num">${dollars(l.cash)}</span>
         <span class="top-val num">${l.closings}</span>
-        <span class="top-val num">${l.joints ? Math.round(l.taux) + ' %' : '—'}</span>
+        <span class="top-val num ${admin ? teinte(l.taux, l.joints, SEUILS_TAUX.closing) : ''}">${l.joints ? Math.round(l.taux) + ' %' : '—'}</span>
+        ${admin ? `<span class="top-val num ${teinte(l.connexion, l.tentes, SEUILS_TAUX.connexion)}">${l.tentes ? Math.round(l.connexion) + ' %' : '—'}</span>` : ''}
       </div>`).join('')}` : `<div class="fact-vide" style="margin-top:14px">Personne dans cette équipe pour l'instant.</div>`) + `
     <details class="rap-defs"><summary>Comment c'est classé</summary>
       <p>1. Le <b>cash collecté</b> sur la période. 2. À égalité, le nombre de <b>closings</b>. 3. Encore à égalité, le <b>% de closing</b>.</p>
       <p>Un très bon pourcentage sur deux ventes ne passe donc pas devant quelqu'un qui a rapporté plus.</p>
       <p><b>% de closing :</b> closings divisés par les joints reçus ou closés sur la période. Les jours sont en heure de Paris.</p>
+      ${admin ? `<p><b>Connexion :</b> joints divisés par appelés, sur les leads reçus pendant la période. En rouge sous ${SEUILS_TAUX.closing} % de closing ou ${SEUILS_TAUX.connexion} % de connexion, à partir de ${MINIMUM_TAUX} joints ou appelés. Visible par les administrateurs seulement.</p>` : ''}
     </details>`;
 }
 
