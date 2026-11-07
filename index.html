@@ -2545,8 +2545,37 @@ function construireFiltres(){
   });
 }
 
+/* ---------------- Les administrateurs comptent en heure de Paris ----------------
+   Où qu'ils soient, ils doivent voir les mêmes chiffres : leurs journées,
+   semaines et mois commencent à minuit, heure de Paris. Les setters gardent
+   l'heure de leur téléphone. */
+const heureDeParis = () => !!me && me.role === 'admin';
+const minuitParis = (iso) => minuitDans(iso, 'Europe/Paris');
+function bornesParis(p, du, au){
+  const auj = jourParis();
+  const mois = (n) => {                       // le 1er du mois, n mois plus tôt
+    const [a, m] = auj.split('-').map(Number);
+    const d = new Date(Date.UTC(a, m - 1 - n, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  };
+  const demain = minuitParis(plusJours(auj, 1));
+  switch (p){
+    case 'jour':   return [minuitParis(auj), demain];
+    case 'hier':   return [minuitParis(plusJours(auj, -1)), minuitParis(auj)];
+    case '7j':     return [minuitParis(plusJours(auj, -6)), demain];
+    case 'mois':   return [minuitParis(mois(0)), demain];
+    case 'mois-1': return [minuitParis(mois(1)), minuitParis(mois(0))];
+    case 'perso':  return [du ? minuitParis(du) : null, au ? minuitParis(plusJours(au, 1)) : null];
+    default:       return [null, null];
+  }
+}
+
 /* ---------------- Chargement ---------------- */
 function bornesJour(decalage = 0){
+  if (heureDeParis()){
+    const jour = plusJours(jourParis(), decalage);
+    return [minuitParis(jour).toISOString(), minuitParis(plusJours(jour, 1)).toISOString()];
+  }
   const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + decalage);
   const f = new Date(d); f.setDate(f.getDate() + 1);
   return [d.toISOString(), f.toISOString()];
@@ -4670,7 +4699,10 @@ async function toutLire(chemin){
 
 async function chargerRapport(){
   const zone = $('rapportZone');
-  if (!rapJour) rapJour = isoJour(new Date());
+  if (!rapJour){
+    rapJour = heureDeParis() ? jourParis() : isoJour(new Date());
+    if (heureDeParis()) rapFuseau = 'paris';
+  }
   zone.innerHTML = barreRapport() + '<div class="skel"></div>'.repeat(4);
   const [d, f] = bornesRapport();
   const borne = `&created_at=gte.${d.toISOString()}&created_at=lt.${f.toISOString()}`;
@@ -5061,6 +5093,7 @@ document.addEventListener('change', (e) => {
    ============================================================ */
 function bornesPartenaires(){
   const p = $('partPeriode').value;
+  if (heureDeParis()) return bornesParis(p);
   const d = new Date(); d.setHours(0, 0, 0, 0);
   const f = new Date(d); f.setDate(f.getDate() + 1);
   switch (p){
@@ -5352,6 +5385,7 @@ $('lpListe').addEventListener('change', (e) => {
 
 function bornes(){
   const p = $('periode').value;
+  if (heureDeParis()) return bornesParis(p, $('dateDebut').value, $('dateFin').value);
   const d = new Date(); d.setHours(0,0,0,0);
   const f = new Date(d); f.setDate(f.getDate() + 1);
   switch (p){
