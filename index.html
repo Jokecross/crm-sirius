@@ -1883,6 +1883,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
       </div>
 
       <div class="vagues" id="vagues" hidden></div>
+      <div class="vagues" id="pagesOptin" hidden></div>
 
       <div class="filtres" id="filtres"></div>
 
@@ -2164,6 +2165,8 @@ const COLONNES = [
 const SESSION_KEY = 'crm_sirius_session';
 let session = null, me = null, staff = [];
 let vue = 'jour', filtreStatut = '', vagueFiltre = '';
+// L'onglet Opt-in se filtre par page de vente : '' (toutes), 'sirius' ou 'jvj'.
+let pageOptin = '';
 let leads = [], ouvert = null, leadOuvert = null, chargement = false;
 let tri = { col:'created_at', sens:'desc' };
 let selection = new Set();
@@ -2517,6 +2520,8 @@ function allerA(id){
   construireEntete();
   $('vagues').hidden = (id !== 'iclosed');
   if (id !== 'iclosed') vagueFiltre = '';
+  $('pagesOptin').hidden = (id !== 'optin');
+  if (id !== 'optin') pageOptin = '';
   else construireVagues();
 
   if (id === 'dashboard') chargerStats();
@@ -2734,8 +2739,29 @@ async function charger(silencieux){
     afficher();
     majCompteurs();
     majContexte();
+    if (vue === 'optin') construirePagesOptin();
   }
 }
+
+/* Le filtre de page de l'onglet Opt-in : les deux pages restent dans le
+   même onglet, un clic suffit pour n'en voir qu'une. Les compteurs portent
+   sur tout ce qui est chargé, quel que soit le filtre choisi. */
+function construirePagesOptin(){
+  const n = (o) => leads.filter(x => !o || (x.offre || 'sirius') === o).length;
+  const bouton = (valeur, libelle) =>
+    `<button type="button" class="vague-btn ${pageOptin === valeur ? 'on' : ''}" data-page-optin="${valeur}">${
+      echap(libelle)}<span class="vague-compte">${n(valeur)}</span></button>`;
+  $('pagesOptin').innerHTML = bouton('', 'Toutes') + bouton('sirius', 'Page Sirius') + bouton('jvj', 'Page JVJ');
+}
+
+$('pagesOptin').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-page-optin]');
+  if (!b) return;
+  pageOptin = b.dataset.pageOptin;
+  document.querySelectorAll('[data-page-optin]').forEach(x => x.classList.toggle('on', x === b));
+  curseur = -1;
+  afficher();
+});
 
 async function majCompteurs(){
   try {
@@ -2887,6 +2913,7 @@ function listeFiltree(){
   const q = $('search').value.trim().toLowerCase();
   if (q) l = l.filter(x => [x.first_name, x.last_name, x.email, x.phone, x.source, x.offre].join(' ').toLowerCase().includes(q));
   if (filtreStatut && vue !== 'relances') l = l.filter(x => x.status === filtreStatut);
+  if (vue === 'optin' && pageOptin) l = l.filter(x => (x.offre || 'sirius') === pageOptin);
 
   // Un agenda se lit dans l'ordre : le prochain appel en haut.
   if (vue === 'rdv') return l.sort((a, b) => new Date(a.rdv_at) - new Date(b.rdv_at));
