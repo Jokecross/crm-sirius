@@ -32,6 +32,8 @@ const ORIGINES = [
   'https://iamoneyclub-starter.com',
   'https://lpsirius.vercel.app',
   'https://pageventejvj.vercel.app',
+  'https://www.jvj-starter.com',
+  'https://jvj-starter.com',
 ]
 
 // L'offre se lit sur le lead en base : c'est la page qui l'a créé.
