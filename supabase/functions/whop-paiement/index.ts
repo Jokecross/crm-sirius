@@ -1,5 +1,5 @@
 // =====================================================================
-//  Paiement Whop de l'appel (9,99 €) — page de vente Sirius
+//  Paiement Whop de l'appel — page Sirius (9,99 €) et page JVJ (4,99 €)
 //
 //  La page affiche le formulaire de paiement Whop (Whop Elements) et en
 //  tire un jeton à usage unique (ctok_…). Elle l'envoie ici : on crée le
@@ -12,12 +12,18 @@
 //    WHOP_ACCOUNT_ID   l'entreprise Whop, biz_…
 //    WHOP_PLAN_ID      le plan à 9,99 €, plan_…
 //  Le plan est fixé ici, pas par la page : on ne laisse pas un visiteur
-//  choisir ce qu'il paie.
+//  choisir ce qu'il paie. Le lead JVJ (offre = 'jvj') paie le plan JVJ,
+//  sur le même compte Whop ; tous les autres, le plan Sirius.
 // =====================================================================
 
 const WHOP_API_KEY = Deno.env.get('WHOP_API_KEY') ?? ''
 const WHOP_ACCOUNT_ID = Deno.env.get('WHOP_ACCOUNT_ID') ?? ''
 const PLAN = Deno.env.get('WHOP_PLAN_ID') ?? ''
+// Le plan du produit jvj-starter (whop.com/instagram-08df/jvj-starter). Il
+// est aussi dans la page JVJ : ce n'est pas un secret.
+const PLAN_JVJ = 'plan_tJiO0ClEebkaO'   // JVJ Starter, 4,99 €
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 // Les pages qui ont le droit d'appeler la fonction, et de servir d'adresse
 // de retour après une étape bancaire (3D Secure).
@@ -25,7 +31,21 @@ const ORIGINES = [
   'https://www.iamoneyclub-starter.com',
   'https://iamoneyclub-starter.com',
   'https://lpsirius.vercel.app',
+  'https://pageventejvj.vercel.app',
 ]
+
+// L'offre se lit sur le lead en base : c'est la page qui l'a créé.
+async function offreDuLead(id: string | null): Promise<string> {
+  if (!id || !SUPABASE_URL || !SERVICE_ROLE) return 'sirius'
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/leads?id=eq.${id}&select=offre`, {
+      headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` },
+    })
+    return (await r.json())[0]?.offre ?? 'sirius'
+  } catch {
+    return 'sirius'
+  }
+}
 
 function entetes(origine: string | null): Record<string, string> {
   return {
@@ -49,7 +69,11 @@ Deno.serve(async (req) => {
 
   if (!d.confirmation_token || !/^ctok_/.test(d.confirmation_token)) return reponse(400, { erreur: 'Moyen de paiement manquant.' })
   const lead = /^[0-9a-f-]{36}$/i.test(d.lead_id ?? '') ? d.lead_id! : null
-  const retour = ORIGINES.some((o) => (d.return_url ?? '').startsWith(o + '/')) ? d.return_url : `${ORIGINES[0]}/?confirmation=1`
+  const origine = req.headers.get('origin')
+  const base = origine && ORIGINES.includes(origine) ? origine : ORIGINES[0]
+  const retour = ORIGINES.some((o) => (d.return_url ?? '').startsWith(o + '/')) ? d.return_url : `${base}/?confirmation=1`
+  const plan = (await offreDuLead(lead)) === 'jvj' ? PLAN_JVJ : PLAN
+  if (!plan) return reponse(500, { erreur: 'Paiement non configuré.' })
 
   const r = await fetch('https://api.whop.com/api/v1/payments', {
     method: 'POST',
@@ -57,7 +81,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       account_id: WHOP_ACCOUNT_ID,
       // Whop l'appelle « variant » : c'est le plan_… de la page de paiement.
-      variant_id: PLAN,
+      variant_id: plan,
       confirmation_token: d.confirmation_token,
       ...(d.email ? { email: d.email } : {}),
       return_url: retour,

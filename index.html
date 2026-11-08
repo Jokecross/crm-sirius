@@ -2040,7 +2040,7 @@ const estVente = (statut) => statut in OFFRES;
 const VUES = [
   ['jour',      'Leads du jour', "Le vivier du jour, commun à toute l'équipe",
    '<path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M16 3v4M8 3v4M3 11h18"/>'],
-  ['optin',     'Opt-in',        'Formulaire rempli sur la page Sirius, 9,99 € non payés',
+  ['optin',     'Opt-in',        'Formulaire rempli sur la page Sirius ou JVJ, appel non payé',
    '<path d="M4 6h16M4 12h10M4 18h6"/><circle cx="18" cy="16" r="3"/>'],
   ['rdv',       'Rendez-vous',   'Les appels réservés sur ton calendrier, du plus proche au plus lointain',
    '<path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M16 3v4M8 3v4M3 11h18"/><path d="M12 14v3l2 1"/>'],
@@ -2851,7 +2851,7 @@ const via = (l) => {
 /* La page de vente qui a amené le lead. Seuls les formulaires en ont une :
    pas les leads Skool, ni ceux importés à la main. */
 const pagePastille = (l) => {
-  if (l.vivier !== 'formulaire' || l.equipe !== 'starter') return '';
+  if ((l.vivier !== 'formulaire' && l.vivier !== 'optin') || l.equipe !== 'starter') return '';
   return l.offre === 'jvj'
     ? '<span class="tag-page jvj">Page JVJ</span>'
     : '<span class="tag-page">Page Sirius</span>';
@@ -2941,7 +2941,7 @@ function afficher(){
                             : "Aucun appel réservé pour l'instant. Remplis tes dispos et envoie ton lien de réservation (onglet Dispos).") :
       vue === 'pipeline' ? "Aucun lead à toi pour l'instant. Prends-en un dans « Leads du jour »." :
       vue === 'iclosed'  ? "Aucun call iClosed à rappeler. Un administrateur t'en attribuera." :
-      vue === 'optin'    ? "Aucun opt-in pour l'instant. Ceux qui ne paient pas les 9,99 € arrivent ici au bout de 30 minutes." :
+      vue === 'optin'    ? "Aucun opt-in pour l'instant. Ceux qui ne paient pas l'appel arrivent ici au bout de 30 minutes." :
                            'Aucun lead ne correspond.'}</div>`;
     majBulk();
     return;
