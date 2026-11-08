@@ -4929,12 +4929,12 @@ function dessinerRapport(){
 
 /* ============================================================
    SOURCES
-   De chaque lien de la page Sirius, du visiteur à la vente. Tout vient de
+   De chaque lien de la page Sirius ou JVJ, du visiteur à la vente. Tout vient de
    stats_sources : jours en heure de Paris, même calcul de la source et
    même définition d'une vente que le rapport des pages.
    ============================================================ */
 const jourParis = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
-let srcDu = '', srcAu = '', srcPlage = 'auj';
+let srcDu = '', srcAu = '', srcPlage = 'auj', srcOffre = 'sirius';
 const euros = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
 function plageSources(p){
@@ -4949,7 +4949,11 @@ function plageSources(p){
 function barreSources(){
   const auj = jourParis();
   const b = (p, lib) => `<button type="button" data-src-plage="${p}" class="${srcPlage === p ? 'on' : ''}">${lib}</button>`;
+  const o = (v, lib) => `<button type="button" data-src-offre="${v}" class="${srcOffre === v ? 'on' : ''}">${lib}</button>`;
   return `<div class="dispo-outils rap-outils">
+      <div class="dispo-bascule" role="group" aria-label="Page de vente">
+        ${o('sirius', 'Page Sirius')}${o('jvj', 'Page JVJ')}
+      </div>
       <div class="dispo-bascule" role="group" aria-label="Période">
         ${b('auj', "Aujourd'hui")}${b('hier', 'Hier')}${b('7j', '7 jours')}${b('30j', '30 jours')}
       </div>
@@ -4967,7 +4971,7 @@ async function chargerSources(){
   try {
     s = await api('/rest/v1/rpc/stats_sources', {
       method: 'POST',
-      body: JSON.stringify({ p_du: srcDu, p_au: srcAu, p_offre: 'sirius' }),
+      body: JSON.stringify({ p_du: srcDu, p_au: srcAu, p_offre: srcOffre }),
     });
   } catch (err) {
     zone.innerHTML = barreSources() + `<div class="fact-vide">Les sources n'ont pas pu être chargées.<br>${echap(erreurBase(err).slice(0, 200))}</div>`;
@@ -5087,6 +5091,8 @@ document.addEventListener('click', (e) => {
   if (vue !== 'sources') return;
   const p = e.target.closest('[data-src-plage]');
   if (p){ plageSources(p.dataset.srcPlage); chargerSources(); return; }
+  const o = e.target.closest('[data-src-offre]');
+  if (o){ srcOffre = o.dataset.srcOffre; chargerSources(); return; }
   if (e.target.closest('[data-src-actualiser]')) chargerSources();
 });
 document.addEventListener('change', (e) => {
