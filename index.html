@@ -2876,6 +2876,8 @@ const via = (l) => {
 };
 /* La page de vente qui a amené le lead. Seuls les formulaires en ont une :
    pas les leads Skool, ni ceux importés à la main. */
+// Le prix de l'appel dépend de la page : 9,99 € chez Sirius, 4,99 € chez JVJ.
+const prixAppel = (l) => l.offre === 'jvj' ? '4,99 €' : '9,99 €';
 const pagePastille = (l) => {
   if ((l.vivier !== 'formulaire' && l.vivier !== 'optin') || l.equipe !== 'starter') return '';
   return l.offre === 'jvj'
@@ -2988,7 +2990,7 @@ function afficher(){
       <div class="c-lead"><b>${echap(nomLead(l))}</b>${pagePastille(l)}${
         via(l) ? `<span class="tag-via">Via ${echap(via(l))}</span>` : ''}${
         vue === 'relances' && l.vivier === 'iclosed' ? '<span class="tag-src">iClosed</span>' : ''}${
-        l.paye_at ? `<span class="tag-paye" title="9,99 € payés le ${jourHeure(l.paye_at)}">Payé 9,99 €</span>` : ''}${
+        l.paye_at ? `<span class="tag-paye" title="${prixAppel(l)} payés le ${jourHeure(l.paye_at)}">Payé ${prixAppel(l)}</span>` : ''}${
         l.rdv_at && !l.rdv_annule_at && vue !== 'rdv'
           ? `<span class="tag-rdv" title="Appel réservé">📅 ${echap(momentRdv(l.rdv_at))}</span>` : ''}${
         l.vivier === 'iclosed' && l.message_at
@@ -5603,14 +5605,14 @@ function recevoirChangement(message){
   // le CRM. Les autres changements se contentent de rafraîchir la vue.
   // Un lead du parcours automatique ne concerne pas les setters : pas de
   // son, pas d'annonce. Il attend dans l'onglet Automatique. Un opt-in
-  // (formulaire rempli, 9,99 € pas payés) non plus : il attend dans Opt-in.
+  // (formulaire rempli, appel pas payé) non plus : il attend dans Opt-in.
   const n = message.new;
   if (message.eventType === 'INSERT' && n && !n.setter_id
       && n.vivier !== 'auto' && n.vivier !== 'optin'){
     const qui = nomLead(n);
     if (!vueReduite()){ toast('Nouveau lead' + (qui ? ' : ' + qui : '')); ding(); }
   }
-  // Le paiement des 9,99 € fait passer un opt-in dans les Leads du jour : c'est
+  // Le paiement de l'appel fait passer un opt-in dans les Leads du jour : c'est
   // une mise à jour, pas une création, et c'est là qu'il faut sonner. Une
   // seule fois par lead : il sera encore modifié ensuite.
   if (message.eventType === 'UPDATE' && n && !n.setter_id && n.vivier === 'formulaire'
