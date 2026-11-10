@@ -1973,6 +1973,10 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
       <div id="sourcesZone"></div>
     </section>
 
+    <section id="viewBase44" hidden>
+      <div id="base44Zone"></div>
+    </section>
+
     <section id="viewClassement" hidden>
       <div id="classementZone"></div>
     </section>
@@ -2063,6 +2067,8 @@ const VUES = [
    '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   ['rapport',   'Rapport',       'Les chiffres exacts d\'une journée : leads reçus, travail fait, setter par setter',
    '<path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1z"/><path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2"/><path d="M8 17v-3M12 17v-6M16 17v-4"/>'],
+  ['base44',    'Paiements Base44', 'Chaque vente du CRM face aux achats réellement remontés par Base44',
+   '<path d="M3 12h4l3-8 4 16 3-8h4"/>'],
   ['sources',   'Sources',       'De chaque lien : visiteurs, formulaires, paiements, ventes',
    '<path d="M4 4h16l-6 8v6l-4 2v-8z"/>'],
   ['presence',  'Présence',      'Qui est en ligne, inactif ou hors ligne',
@@ -2145,6 +2151,8 @@ const vuesDeMonEquipe = () => estPartenaire()
       : id === 'rapport' ? me.role === 'admin'
       // Les chiffres de chaque lien, pour décider où mettre le budget.
       : id === 'sources' ? me.role === 'admin' && equipeChoisie() === 'starter'
+      // Les paiements Base44 : seulement les comptes qui ont staff.voit_affiliate.
+      : id === 'base44' ? me.voit_affiliate === true && equipeChoisie() === 'starter'
       // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
       // L'opt-in : les administrateurs, et les setters à qui on en a confié (staff.voit_optin).
       : id === 'optin' ? (me.role === 'admin' || me.voit_optin === true) && definition(equipeChoisie()).vues.includes(id)
@@ -2446,7 +2454,7 @@ function construireNav(){
     <button class="tab-item ${id === vue ? 'on' : ''}" data-vue="${id}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ico}</svg>
       ${id === 'jour' ? 'Leads' : id === 'rdv' ? 'RDV' : id === 'dashboard' ? 'Chiffres' : id === 'iclosed' ? 'iClosed'
-        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'sources' ? 'Sources' : id === 'classement' ? 'Top' : id === 'optin' ? 'Opt-in' : lib}
+        : id === 'dispos' ? 'Dispos' : id === 'auto' ? 'Auto' : id === 'presence' ? 'Présence' : id === 'rapport' ? 'Rapport' : id === 'sources' ? 'Sources' : id === 'base44' ? 'Base44' : id === 'classement' ? 'Top' : id === 'optin' ? 'Opt-in' : lib}
       ${['relances','factures','iclosed'].includes(id) ? `<span class="tab-dot" id="dot-${id}" hidden></span>` : ''}
     </button>`).join('');
 
@@ -2496,7 +2504,7 @@ function allerA(id){
 
   // Deux vues ne montrent pas de leads : elles ont leur propre section, et
   // rien de la barre d'outils des listes ne les concerne.
-  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport', 'sources', 'classement'].includes(id);
+  const liste = !['dashboard', 'factures', 'partenaires', 'legalplace', 'auto', 'dispos', 'presence', 'rapport', 'sources', 'classement', 'base44'].includes(id);
   $('viewList').hidden = !liste;
   $('viewDash').hidden = (id !== 'dashboard');
   $('viewFactures').hidden = (id !== 'factures');
@@ -2506,6 +2514,7 @@ function allerA(id){
   $('viewPresence').hidden = (id !== 'presence');
   $('viewRapport').hidden = (id !== 'rapport');
   $('viewSources').hidden = (id !== 'sources');
+  $('viewBase44').hidden = (id !== 'base44');
   $('viewClassement').hidden = (id !== 'classement');
   $('viewLegal').hidden = (id !== 'legalplace');
   // L'import n'a de sens que dans le vivier iClosed, et pour qui répartit.
@@ -2533,6 +2542,7 @@ function allerA(id){
   else if (id === 'presence') chargerPresence();
   else if (id === 'rapport') chargerRapport();
   else if (id === 'sources') chargerSources();
+  else if (id === 'base44') chargerBase44();
   else if (id === 'classement') chargerClassement();
   else if (id === 'legalplace') chargerLegal();
   else charger();
@@ -5011,6 +5021,108 @@ async function chargerSources(){
       <p>Les jours sont en heure de Paris. Le paiement existe depuis le 04/11/2026 : avant, la colonne Payés est vide.</p>
     </details>`;
 }
+
+/* ============================================================
+   PAIEMENTS BASE44
+   Les achats remontés par Affiliate Consulting (table affiliate_events,
+   fonction affiliate-webhook), face aux ventes posées dans le CRM.
+   Rapprochement : même setter (shared_id = son prénom dans le lien),
+   même formule (mensuel / annuel), à moins de 48 h de la vente. Les
+   événements arrivent 1 h 30 à 3 h après l'achat : une vente reste « en
+   attente » 6 h avant d'être déclarée « non trouvée ».
+   ============================================================ */
+const BRANCHEMENT_AFFILIATE = new Date('2026-11-10T20:38:00Z');
+let b44Plage = '7j';
+const formuleB44 = (s) => s === 'monthly' ? 'mensuel' : (s === 'yearly' || s === 'yearly_builder') ? 'annuel' : '';
+const periodeB44 = (p) => String(p || '').toLowerCase().startsWith('month') ? 'mensuel' : String(p || '').toLowerCase().startsWith('year') ? 'annuel' : '';
+
+async function chargerBase44(){
+  const zone = $('base44Zone');
+  const b = (p, lib) => `<button type="button" data-b44-plage="${p}" class="${b44Plage === p ? 'on' : ''}">${lib}</button>`;
+  const barre = `<div class="dispo-outils rap-outils"><div class="dispo-bascule" role="group" aria-label="Période">
+      ${b('jour', "Aujourd'hui")}${b('7j', '7 jours')}${b('mois', 'Ce mois')}</div>
+      <button type="button" class="auto-btn" data-b44-actualiser>Actualiser</button></div>`;
+  zone.innerHTML = barre + '<div class="skel"></div>'.repeat(3);
+  const [d, f] = bornesParis(b44Plage);
+  let events, ventes;
+  try {
+    [events, ventes] = await Promise.all([
+      toutLire(`/rest/v1/affiliate_events?select=id,recu_at,type,payload&recu_at=gte.${new Date(d.getTime() - 3 * 864e5).toISOString()}&order=recu_at.desc`),
+      toutLire(`/rest/v1/leads?select=id,first_name,last_name,status,closed_at,setter_id,cash_collecte&equipe=eq.starter` +
+        `&status=in.(monthly,yearly,yearly_builder)&closed_at=gte.${d.toISOString()}&closed_at=lt.${f.toISOString()}&order=closed_at.asc`),
+    ]);
+  } catch (err) {
+    zone.innerHTML = barre + `<div class="fact-vide">Les paiements n'ont pas pu être chargés.<br>${echap(erreurBase(err).slice(0, 200))}</div>`;
+    return;
+  }
+  if (vue !== 'base44') return;
+
+  // Les achats, sans les tests ; une annulation retire l'achat qu'elle vise.
+  const reels = events.filter(e => e.payload && e.payload.data && !e.payload.test);
+  const annules = new Set(reels.filter(e => /revers/i.test(e.type)).map(e => e.payload.data.action_id));
+  const achats = reels.filter(e => /purchase\.created/i.test(e.type)).map(e => {
+    const x = e.payload.data;
+    return { setter: String(x.shared_id || '').toLowerCase(), formule: periodeB44(x.billing_period), date: new Date(x.event_date || e.recu_at),
+             commission: Number(x.commission) || 0, statut: x.status || '', action: x.action_id, annule: annules.has(x.action_id), pris: false };
+  }).filter(a => a.date >= d && a.date < f);
+  const inscriptions = reels.filter(e => /sign/i.test(e.type) && new Date(e.payload.data.event_date || e.recu_at) >= d).length;
+
+  const nomSetter = (id) => { const s = staff.find(x => x.user_id === id); return s ? nomStaff(s) : '—'; };
+  const prenomSetter = (id) => { const s = staff.find(x => x.user_id === id); return s ? String(s.first_name || '').toLowerCase() : ''; };
+  const maintenant = Date.now();
+  const lignes = ventes.map(v => {
+    const quand = new Date(v.closed_at), cle = prenomSetter(v.setter_id), formule = formuleB44(v.status);
+    const candidat = achats.filter(a => !a.pris && a.setter === cle && (!a.formule || a.formule === formule)
+        && Math.abs(a.date - quand) <= 48 * 36e5).sort((x, y) => Math.abs(x.date - quand) - Math.abs(y.date - quand))[0];
+    let etat;
+    if (candidat){ candidat.pris = true; etat = candidat.annule ? 'annulee' : 'confirmee'; }
+    else if (quand < BRANCHEMENT_AFFILIATE) etat = 'avant';
+    else if (maintenant - quand < 6 * 36e5) etat = 'attente';
+    else etat = 'manquante';
+    return { v, quand, formule, setter: nomSetter(v.setter_id), etat, achat: candidat };
+  });
+  const orphelins = achats.filter(a => !a.pris);
+  const n = (e) => lignes.filter(l => l.etat === e).length;
+  const commissions = achats.filter(a => !a.annule).reduce((s, a) => s + a.commission, 0);
+  const ETATS = { confirmee: ['Confirmée', 'sur-seuil'], annulee: ['Annulée chez Base44', 'sous-seuil'], attente: ['En attente', ''],
+                  manquante: ['Non trouvée', 'sous-seuil'], avant: ['Avant le branchement', ''] };
+  const heure = (x) => x.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+
+  zone.innerHTML = barre + `
+    <div class="rap-cases" style="margin-top:14px">
+      ${rapCase('Ventes CRM', ventes.length)}
+      ${rapCase('Confirmées', n('confirmee'), pct(n('confirmee'), ventes.length - n('avant')) + ' des ventes suivies', 'cash')}
+      ${rapCase('Non trouvées', n('manquante'), 'plus de 6 h sans achat', n('manquante') ? 'alerte' : '')}
+      ${rapCase('En attente', n('attente'), 'moins de 6 h')}
+      ${rapCase('Achats sans vente', orphelins.length, 'vente non posée ?', orphelins.length ? 'alerte' : '')}
+      ${rapCase('Commissions Base44', dollars(commissions), `${achats.length} achat${achats.length > 1 ? 's' : ''} · ${inscriptions} inscription${inscriptions > 1 ? 's' : ''}`, 'cash')}
+    </div>
+    ${lignes.length ? `<div class="dispo-planning-zone" style="margin-top:14px"><table class="rap-table" style="min-width:760px">
+      <thead><tr><th>Vente du CRM</th><th>Setter</th><th>Formule</th><th>Posée le</th><th>État</th><th>Achat Base44</th></tr></thead>
+      <tbody>${lignes.map(l => `<tr><th>${echap([l.v.first_name, l.v.last_name].filter(Boolean).join(' ') || 'Sans nom')}</th>
+        <td>${echap(l.setter)}</td><td>${l.formule}</td><td>${heure(l.quand)}</td>
+        <td class="top-val ${ETATS[l.etat][1]}">${ETATS[l.etat][0]}</td>
+        <td>${l.achat ? `${heure(l.achat.date)} · ${dollars(l.achat.commission)} · ${echap(l.achat.statut)}` : '—'}</td></tr>`).join('')}</tbody>
+    </table></div>` : `<div class="fact-vide" style="margin-top:14px">Aucune vente Base44 sur cette période.</div>`}
+    ${orphelins.length ? `<h3 style="margin:22px 0 8px">Achats Base44 sans vente dans le CRM</h3>
+    <div class="dispo-planning-zone"><table class="rap-table" style="min-width:600px">
+      <thead><tr><th>Lien du setter</th><th>Formule</th><th>Acheté le</th><th>Commission</th><th>Statut</th></tr></thead>
+      <tbody>${orphelins.map(a => `<tr><th>${echap(a.setter || 'sans lien')}</th><td>${a.formule || '—'}</td><td>${heure(a.date)}</td>
+        <td>${dollars(a.commission)}</td><td>${echap(a.statut)}${a.annule ? ' · annulé' : ''}</td></tr>`).join('')}</tbody>
+    </table></div>` : ''}
+    <details class="rap-defs"><summary>Comment c'est rapproché</summary>
+      <p>Base44 envoie chaque achat fait avec un de vos liens, 1 h 30 à 3 h après. On l'associe à la vente du même setter (le prénom dans son lien), de la même formule, posée à moins de 48 h.</p>
+      <p><b>Non trouvée :</b> 6 h après la vente, aucun achat de ce setter. Le client est peut-être passé par un autre lien, ou a acheté sans lien. <b>Achat sans vente :</b> Base44 a un achat que personne n'a posé dans le CRM.</p>
+      <p>Les ventes posées avant le ${heure(BRANCHEMENT_AFFILIATE)} ne peuvent pas être rapprochées. Les tests envoyés par Affiliate Consulting sont ignorés.</p>
+    </details>`;
+}
+
+document.addEventListener('click', (e) => {
+  if (vue !== 'base44') return;
+  const p = e.target.closest('[data-b44-plage]');
+  if (p){ b44Plage = p.dataset.b44Plage; chargerBase44(); return; }
+  if (e.target.closest('[data-b44-actualiser]')) chargerBase44();
+});
 
 /* ============================================================
    CLASSEMENT

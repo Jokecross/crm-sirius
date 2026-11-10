@@ -7220,3 +7220,64 @@ select s.first_name, s.voit_optin, count(l.id) as opt_in_attribues
  where s.voit_optin
  group by s.first_name, s.voit_optin
  order by s.first_name;
+
+
+-- =====================================================================
+--  Sirius — les événements d'Affiliate Consulting (Base44)
+--  À coller dans Supabase → SQL Editor → New query → Run. Rejouable.
+--
+--  Étape 1 : on écoute. La fonction affiliate-webhook range ici chaque
+--  événement tel quel (inscription, achat, annulation), sans toucher aux
+--  leads. Le rapprochement avec les ventes du CRM viendra ensuite, quand on
+--  aura vu ce qu'Affiliate Consulting envoie vraiment.
+--
+--  Lecture réservée aux comptes qui ont staff.voit_affiliate (22-affiliate-
+--  acces.sql). L'écriture ne passe que par la fonction.
+-- =====================================================================
+
+create table if not exists public.affiliate_events (
+  id        bigserial primary key,
+  recu_at   timestamptz not null default now(),
+  methode   text,
+  type      text,
+  payload   jsonb not null default '{}'::jsonb,
+  brut      text,
+  entetes   jsonb not null default '{}'::jsonb
+);
+
+create index if not exists affiliate_events_recu_idx on public.affiliate_events (recu_at desc);
+
+alter table public.affiliate_events enable row level security;
+revoke all on public.affiliate_events from anon, authenticated;
+grant select on public.affiliate_events to authenticated;
+
+-- La lecture est ouverte par 22-affiliate-acces.sql (staff.voit_affiliate).
+
+-- Vérification : la table est là, vide.
+select count(*) as evenements from public.affiliate_events;
+
+-- ---------------------------------------------------------------------
+-- 21b. L'identifiant d'envoi (X-AC-Delivery) : un envoi retenté garde le
+--      même, on ne l'enregistre qu'une fois.
+-- ---------------------------------------------------------------------
+alter table public.affiliate_events add column if not exists delivery text;
+alter table public.affiliate_events add column if not exists signature_ok boolean;
+create unique index if not exists affiliate_events_delivery_idx on public.affiliate_events (delivery);
+
+
+-- =====================================================================
+--  Sirius — qui voit les paiements Base44 (Affiliate Consulting)
+--  À coller dans Supabase → SQL Editor → New query → Run. Rejouable.
+--
+--  staff.voit_affiliate : seul un compte qui a ce droit lit les événements
+--  et voit l'onglet « Base44 » du CRM. Le droit se donne à part, compte par
+--  compte (le fichier qui le donne n'est pas dans le dépôt).
+-- =====================================================================
+
+alter table public.staff add column if not exists voit_affiliate boolean not null default false;
+
+drop policy if exists "martin lit les evenements affiliate" on public.affiliate_events;
+drop policy if exists "lecture des evenements affiliate" on public.affiliate_events;
+create policy "lecture des evenements affiliate" on public.affiliate_events
+  for select to authenticated
+  using (exists (select 1 from public.staff where user_id = auth.uid() and voit_affiliate));
