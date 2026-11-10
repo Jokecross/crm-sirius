@@ -2146,7 +2146,8 @@ const vuesDeMonEquipe = () => estPartenaire()
       // Les chiffres de chaque lien, pour décider où mettre le budget.
       : id === 'sources' ? me.role === 'admin' && equipeChoisie() === 'starter'
       // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
-      : id === 'optin' ? me.role === 'admin' && definition(equipeChoisie()).vues.includes(id)
+      // L'opt-in : les administrateurs, et les setters à qui on en a confié (staff.voit_optin).
+      : id === 'optin' ? (me.role === 'admin' || me.voit_optin === true) && definition(equipeChoisie()).vues.includes(id)
       : definition(equipeChoisie()).vues.includes(id)));
 
 const COLONNES = [
@@ -2692,9 +2693,11 @@ async function charger(silencieux){
   } else if (vue === 'optin'){
     // Commun à toute l'équipe, comme le vivier du jour : libres et pris, le
     // plus récent d'abord. Un administrateur peut regarder un setter.
+    // Un setter ne voit que les opt-in qui lui ont été attribués.
     const perso = me.role === 'admin' && !equipe;
     const avant = new Date(Date.now() - OPTIN_DELAI_MS).toISOString();
-    q = `/rest/v1/leads?select=${COLS}${perso ? filtre : ''}${pool}${filtreEquipe}`
+    const siens = me.role === 'admin' ? '' : `&setter_id=eq.${me.user_id}`;
+    q = `/rest/v1/leads?select=${COLS}${perso ? filtre : ''}${siens}${pool}${filtreEquipe}`
       + `&created_at=lt.${avant}&order=created_at.desc&limit=500`;
   } else if (vue === 'jour'){
     const [d, f] = bornesJour();
