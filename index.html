@@ -2604,6 +2604,8 @@ function bornesJour(decalage = 0){
    demi-heure avant de les montrer : quelqu'un en train de payer ne doit pas
    recevoir un appel d'opt-in. */
 const OPTIN_DELAI_MS = 30 * 60 * 1000;
+/* Lien gratuit de la page Sirius (/appel) : formulaire sans paiement. */
+const viaLienGratuit = (l) => !l.paye_at && /^https?:\/\/[^/]+\/appel\/?(\?|$)/i.test(l.page_url || '');
 const COLS = 'id,offre,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,paye_at,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,invoices(created_at),enr:lead_calls(count)';
 
 /* Un lead qu'on a eu au téléphone doit avoir sa note et son
@@ -3009,6 +3011,7 @@ function afficher(){
         via(l) ? `<span class="tag-via">Via ${echap(via(l))}</span>` : ''}${
         vue === 'relances' && l.vivier === 'iclosed' ? '<span class="tag-src">iClosed</span>' : ''}${
         l.paye_at ? `<span class="tag-paye" title="${prixAppel(l)} payés le ${jourHeure(l.paye_at)}">Payé ${prixAppel(l)}</span>` : ''}${
+        viaLienGratuit(l) ? '<span class="tag-src" title="Arrivé par le lien gratuit /appel : il n’a rien payé">Gratuit</span>' : ''}${
         l.rdv_at && !l.rdv_annule_at && vue !== 'rdv'
           ? `<span class="tag-rdv" title="Appel réservé">📅 ${echap(momentRdv(l.rdv_at))}</span>` : ''}${
         l.vivier === 'iclosed' && l.message_at
