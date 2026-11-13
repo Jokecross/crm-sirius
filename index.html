@@ -965,6 +965,8 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
   font-size:10.5px;font-weight:800;vertical-align:middle;white-space:nowrap;
 }
 .tag-page.jvj{background:#E3B64F;color:#0B0B0C}
+/* Skool : un rouge plus vif que la pastille « Page Sirius », pour ne pas les confondre. */
+.tag-page.skool{background:#E5172B;color:#fff;text-transform:uppercase;letter-spacing:.06em}
 .panel-head .tag-page{margin-left:0}
 .lien-espace{text-decoration:none}
 
@@ -1924,6 +1926,7 @@ main:has(#viewDash:not([hidden])) > .page-head{display:none}
           <option value="">Toutes les pages</option>
           <option value="sirius">Page Sirius</option>
           <option value="jvj">Page JVJ</option>
+          <option value="skool">Réservation Skool</option>
         </select>
       </div>
       </div>
@@ -2884,15 +2887,17 @@ const nomLead = (l) => [l.first_name, l.last_name].filter(Boolean).join(' ') || 
    (referrer) : pas de pastille. */
 const via = (l) => {
   const s = (l.source || '').trim();
-  if (!s || /[:/.]/.test(s) || ['anthony-sirius', 'jvj'].includes(s.toLowerCase())) return null;
+  if (!s || /[:/.]/.test(s) || ['anthony-sirius', 'jvj', 'skool'].includes(s.toLowerCase())) return null;
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
-/* La page de vente qui a amené le lead. Seuls les formulaires en ont une :
-   pas les leads Skool, ni ceux importés à la main. */
+/* La page qui a amené le lead. Seuls les formulaires en ont une : page de
+   vente Sirius, page JVJ, ou page de réservation Skool (pastille « Skool » :
+   le sales applique la trame Skool). Pas les leads importés à la main. */
 // Le prix de l'appel dépend de la page : 9,99 € chez Sirius, 4,99 € chez JVJ.
 const prixAppel = (l) => l.offre === 'jvj' ? '4,99 €' : '9,99 €';
 const pagePastille = (l) => {
   if ((l.vivier !== 'formulaire' && l.vivier !== 'optin') || l.equipe !== 'starter') return '';
+  if (l.offre === 'skool') return '<span class="tag-page skool">Skool</span>';
   return l.offre === 'jvj'
     ? '<span class="tag-page jvj">Page JVJ</span>'
     : '<span class="tag-page">Page Sirius</span>';
@@ -6777,7 +6782,7 @@ async function chargerStats(){
     : null;
   const vivier = [
     { formulaire: 'leads du formulaire', iclosed: 'relances iClosed' }[$('dashSource').value],
-    { sirius: 'page Sirius', jvj: 'page JVJ' }[$('dashOffre').value]
+    { sirius: 'page Sirius', jvj: 'page JVJ', skool: 'réservation Skool' }[$('dashOffre').value]
   ].filter(Boolean).join(' · ');
   // Sur une plage choisie à la main, on rappelle laquelle : le menu dit
   // « Dates au choix », ce qui ne dit rien des dates.
