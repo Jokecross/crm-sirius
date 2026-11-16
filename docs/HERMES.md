@@ -1,9 +1,18 @@
 # Hermès → CRM Sirius : ouvrir les accès Skool
 
-Le paiement se fait maintenant en appel. Le setter vérifie la facture, la dépose
-dans le CRM et note l'e-mail du compte Skool du client. **Hermès ne vérifie
-plus de facture** : il lit la liste des clients à débloquer, ouvre leurs
-modules sur Skool, puis le dit au CRM.
+Le paiement se fait en appel. Le sales choisit dans le CRM l'abonnement vendu
+et note l'e-mail du compte Skool du client. **Hermès ne vérifie pas de
+facture** : il lit la liste des clients à débloquer, ouvre sur Skool le
+**AI Master qui correspond à l'abonnement**, puis le dit au CRM.
+
+| `formule` | `niveau` | `acces` à ouvrir | `modules` |
+|---|---|---|---|
+| `monthly` (Mensuel Builder) | `basic` | AI Master Basic | 1 à 8 |
+| `yearly` (Annuel Starter) | `advanced` | AI Master Advanced | 1 à 14 |
+| `yearly_builder` (Annuel Builder) | `elite` | AI Master Elite | 1 à 20 |
+
+Un client qui change d'abonnement revient dans la liste avec son nouveau
+niveau : Hermès ouvre ce qui manque.
 
 Hermès n'a pas de compte dans le CRM. Il a une clé à lui (`HERMES_CLE`,
 transmise à part, jamais dans un message public) et deux appels.
@@ -26,8 +35,8 @@ curl -s -X POST "$URL/rest/v1/rpc/hermes_acces_a_ouvrir" \
 
 Réponse : un tableau, le plus ancien en premier. Vide = rien à faire.
 
-Tout client de la liste reçoit le même accès : `formule` (mensuel ou annuel) sert à
-nos comptes, pas au déblocage. Hermès retrouve le membre par `email_skool`.
+Hermès retrouve le membre par `email_skool` et ouvre l'accès indiqué par
+`niveau` / `acces` (voir le tableau plus haut). `facture_le` peut être vide.
 
 ```json
 [
@@ -37,6 +46,9 @@ nos comptes, pas au déblocage. Hermès retrouve le membre par `email_skool`.
     "prenom": "Léa",
     "nom": "Martin",
     "formule": "monthly",
+    "niveau": "basic",
+    "acces": "AI Master Basic",
+    "modules": "1-8",
     "facture_le": "2026-10-30T09:12:00+00:00",
     "derniere_erreur": null
   }
@@ -69,4 +81,4 @@ fiche pour corriger l'e-mail Skool. Hermès réessaie au passage suivant.
 | Réponse | Sens |
 |---|---|
 | `Clé invalide` | `HERMES_CLE` fausse ou changée |
-| `Lead introuvable, ou sans facture` | `lead_id` inconnu, ou pas un client Skool avec facture |
+| `Lead introuvable, ou sans abonnement` | `lead_id` inconnu, ou pas un client Skool avec un abonnement |
