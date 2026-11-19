@@ -2156,9 +2156,7 @@ const vuesDeMonEquipe = () => estPartenaire()
       : id === 'sources' ? me.role === 'admin' && equipeChoisie() === 'starter'
       // Les paiements Base44 : seulement les comptes qui ont staff.voit_affiliate.
       : id === 'base44' ? me.voit_affiliate === true && equipeChoisie() === 'starter'
-      // L'opt-in n'a pas encore payé : les administrateurs seuls le voient.
-      // L'opt-in : les administrateurs, et les setters à qui on en a confié (staff.voit_optin).
-      : id === 'optin' ? (me.role === 'admin' || me.voit_optin === true) && definition(equipeChoisie()).vues.includes(id)
+      // L'opt-in est ouvert à toute l'équipe (29-optin-pour-tous.sql).
       : definition(equipeChoisie()).vues.includes(id)));
 
 const COLONNES = [
@@ -2708,10 +2706,10 @@ async function charger(silencieux){
   } else if (vue === 'optin'){
     // Commun à toute l'équipe, comme le vivier du jour : libres et pris, le
     // plus récent d'abord. Un administrateur peut regarder un setter.
-    // Un setter ne voit que les opt-in qui lui ont été attribués.
+    // Un setter voit les opt-in libres et les siens, jamais ceux d'un autre.
     const perso = me.role === 'admin' && !equipe;
     const avant = new Date(Date.now() - OPTIN_DELAI_MS).toISOString();
-    const siens = me.role === 'admin' ? '' : `&setter_id=eq.${me.user_id}`;
+    const siens = me.role === 'admin' ? '' : `&or=(setter_id.is.null,setter_id.eq.${me.user_id})`;
     q = `/rest/v1/leads?select=${COLS}${perso ? filtre : ''}${siens}${pool}${filtreEquipe}`
       + `&created_at=lt.${avant}&order=created_at.desc&limit=500`;
   } else if (vue === 'jour'){
