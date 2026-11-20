@@ -2604,7 +2604,7 @@ function bornesJour(decalage = 0){
 const OPTIN_DELAI_MS = 30 * 60 * 1000;
 /* Lien gratuit de la page Sirius (/appel) : formulaire sans paiement. */
 const viaLienGratuit = (l) => !l.paye_at && /^https?:\/\/[^/]+\/appel\/?(\?|$)/i.test(l.page_url || '');
-const COLS = 'id,offre,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,paye_at,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,skool_ouvert_formule,invoices(created_at),enr:lead_calls(count)';
+const COLS = 'id,offre,created_at,first_name,last_name,email,phone,status,setter_id,follow_up_at,dials,cash_collecte,commission,notes,page_url,vivier,message_at,vague,formulaire_at,source,paye_at,equipe,situation,rdv_at,rdv_fin_at,rdv_annule_at,email_skool,skool_ouvert_at,skool_ouvert_par,skool_erreur,skool_erreur_at,skool_ouvert_formule,meta_vente_valeur,meta_vente_at,meta_vente_erreur,invoices(created_at),enr:lead_calls(count)';
 
 /* Un lead qu'on a eu au téléphone doit avoir sa note et son
    enregistrement : c'est ce qui permet de reprendre le dossier et de
@@ -3436,7 +3436,16 @@ function blocSkool(l){
       ${etat}
       ${me.role === 'admin' && niveau && !ouvert
         ? '<button type="button" class="dispo-lien" data-skool-main>Marquer l\'accès comme ouvert à la main</button>' : ''}
+      ${me.role === 'admin' && niveau ? blocMetaVente(l) : ''}
     </div>`;
+}
+
+/* La vente envoyée à Meta (fonction meta-vente) : visible des admins. */
+function blocMetaVente(l){
+  if (l.meta_vente_erreur) return `<p class="skool-etat erreur">Meta : ${echap(l.meta_vente_erreur.slice(0, 160))}</p>`;
+  if (l.meta_vente_at && Number(l.meta_vente_valeur) >= Number(l.cash_collecte || 0))
+    return `<p class="skool-etat ok">✓ Vente envoyée à Meta (${dollars(l.meta_vente_valeur)}) le ${jourHeure(l.meta_vente_at)}</p>`;
+  return `<p class="skool-etat">Vente pas encore envoyée à Meta : elle part à l'enregistrement.</p>`;
 }
 
 function filActivite(){
@@ -3658,6 +3667,17 @@ async function prendreLead(lead){
   return true;
 }
 
+/* Une vente Skool enregistrée : la fonction meta-vente envoie à Meta les
+   ventes Skool pas encore parties (celle-ci, et toute vente ratée avant).
+   Sans attendre, sans bloquer le sales : une erreur se voit sur la fiche. */
+function envoyerVentesMeta(){
+  if (!session || !session.access_token) return;
+  fetch(`${SUPABASE_URL}/functions/v1/meta-vente`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + session.access_token },
+  }).catch(() => {});
+}
+
 async function enregistrer(lead, discret = false){
   try {
     const maj = await api(`/rest/v1/leads?id=eq.${lead.id}`, {
@@ -3678,6 +3698,7 @@ async function enregistrer(lead, discret = false){
     });
     if (maj && maj[0]) Object.assign(lead, maj[0]);
     if (discret){ majCompteurs(); majContexte(); }
+    if (estSkool(lead) && NIVEAU_SKOOL[lead.status]) envoyerVentesMeta();
     return true;
   } catch (ex) {
     toast('Enregistrement impossible', true);
